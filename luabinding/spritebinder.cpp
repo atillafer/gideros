@@ -24,6 +24,7 @@ SpriteBinder::SpriteBinder(lua_State* L)
 		{"getChildIndex", SpriteBinder::getChildIndex},
 		{"removeFromParent", SpriteBinder::removeFromParent},
 		{"setClip", SpriteBinder::setClip},
+        {"getClip", SpriteBinder::getClip},
 		{"getX", SpriteBinder::getX},
 		{"getY", SpriteBinder::getY},
 		{"getZ", SpriteBinder::getZ},
@@ -33,6 +34,8 @@ SpriteBinder::SpriteBinder(lua_State* L)
 		{"getScaleX", SpriteBinder::getScaleX},
 		{"getScaleY", SpriteBinder::getScaleY},
 		{"getScaleZ", SpriteBinder::getScaleZ},
+        {"getSkewX", SpriteBinder::getSkewX},
+        {"getSkewY", SpriteBinder::getSkewY},
 		{"setX", SpriteBinder::setX},
 		{"setY", SpriteBinder::setY},
 		{"setZ", SpriteBinder::setZ},
@@ -42,12 +45,18 @@ SpriteBinder::SpriteBinder(lua_State* L)
 		{"setScaleX", SpriteBinder::setScaleX},
 		{"setScaleY", SpriteBinder::setScaleY},
 		{"setScaleZ", SpriteBinder::setScaleZ},
+        {"setSkewX", SpriteBinder::setSkewX},
+        {"setSkewY", SpriteBinder::setSkewY},
 		{"setPosition", SpriteBinder::setPosition},
 		{"getPosition", SpriteBinder::getPosition},
         {"setAnchorPosition", SpriteBinder::setAnchorPosition},
         {"getAnchorPosition", SpriteBinder::getAnchorPosition},
+        {"setAnchorPoint", SpriteBinder::setAnchorPoint},
+        {"getAnchorPoint", SpriteBinder::getAnchorPoint},
 		{"setScale", SpriteBinder::setScale},
 		{"getScale", SpriteBinder::getScale},
+        {"setSkew", SpriteBinder::setSkew},
+        {"getSkew", SpriteBinder::getSkew},
 		{"localToGlobal", SpriteBinder::localToGlobal},
 		{"globalToLocal", SpriteBinder::globalToLocal},
 		{"isVisible", SpriteBinder::isVisible},
@@ -57,13 +66,14 @@ SpriteBinder::SpriteBinder(lua_State* L)
 		{"hitTestPoint", SpriteBinder::hitTestPoint},
 		{"getWidth", SpriteBinder::getWidth},
 		{"getHeight", SpriteBinder::getHeight},
+		{"getSize", SpriteBinder::getSize},
 		{"getMatrix", SpriteBinder::getMatrix},
 		{"setMatrix", SpriteBinder::setMatrix},
 		{"getAlpha", SpriteBinder::getAlpha},
 		{"setAlpha", SpriteBinder::setAlpha},
 		{"getBounds", SpriteBinder::getBounds},
-		{"setBlendFunc", SpriteBinder::setBlendFunc},
-		{"clearBlendFunc", SpriteBinder::clearBlendFunc},
+        {"setBlendMode", SpriteBinder::setBlendMode},
+        {"clearBlendMode", SpriteBinder::clearBlendMode},
 		{"setShader", SpriteBinder::setShader},
 		{"setShaderConstant", SpriteBinder::setShaderConstant},
 
@@ -74,7 +84,8 @@ SpriteBinder::SpriteBinder(lua_State* L)
 
 	binder.createClass("Sprite", "EventDispatcher", create, destruct, functionList);
 
-	lua_newtable(L);
+    //lua_newtable(L);
+    lua_getglobal(L, "Sprite");
 
 	lua_pushinteger(L, ShaderEngine::ZERO);
 	lua_setfield(L, -2, "ZERO");
@@ -107,7 +118,18 @@ SpriteBinder::SpriteBinder(lua_State* L)
 	lua_pushinteger(L, ShaderEngine::SRC_ALPHA_SATURATE);
 	lua_setfield(L, -2, "SRC_ALPHA_SATURATE");
 
-	lua_setglobal(L, "BlendFactor");
+    lua_pushstring(L, "alpha");
+    lua_setfield(L, -2, "ALPHA");
+    lua_pushstring(L, "noAlpha");
+    lua_setfield(L, -2, "NO_ALPHA");
+    lua_pushstring(L, "add");
+    lua_setfield(L, -2, "ADD");
+    lua_pushstring(L, "multiply");
+    lua_setfield(L, -2, "MULTIPLY");
+    lua_pushstring(L, "screen");
+    lua_setfield(L, -2, "SCREEN");
+
+    lua_setglobal(L, "Sprite");
 }
 
 int SpriteBinder::create(lua_State* L)
@@ -396,6 +418,21 @@ int SpriteBinder::setClip(lua_State* L)
 	return 0;
 }
 
+int SpriteBinder::getClip(lua_State* L)
+{
+    StackChecker checker(L, "SpriteBinder::getClip", 4);
+
+    Binder binder(L);
+    Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite", 1));
+
+    lua_pushnumber(L, sprite->clipX());
+    lua_pushnumber(L, sprite->clipY());
+    lua_pushnumber(L, sprite->clipW());
+    lua_pushnumber(L, sprite->clipH());
+
+    return 4;
+}
+
 int SpriteBinder::getX(lua_State* L)
 {
 	StackChecker checker(L, "getX", 1);
@@ -502,6 +539,30 @@ int SpriteBinder::getScaleZ(lua_State* L)
 	lua_pushnumber(L, sprite->scaleZ());
 
 	return 1;
+}
+
+int SpriteBinder::getSkewX(lua_State* L)
+{
+    StackChecker checker(L, "getSkewX", 1);
+
+    Binder binder(L);
+    Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite"));
+
+    lua_pushnumber(L, sprite->skewX());
+
+    return 1;
+}
+
+int SpriteBinder::getSkewY(lua_State* L)
+{
+    StackChecker checker(L, "getSkewY", 1);
+
+    Binder binder(L);
+    Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite"));
+
+    lua_pushnumber(L, sprite->skewY());
+
+    return 1;
 }
 
 int SpriteBinder::setX(lua_State* L)
@@ -621,6 +682,32 @@ int SpriteBinder::setScaleZ(lua_State* L)
 	return 0;
 }
 
+int SpriteBinder::setSkewX(lua_State* L)
+{
+    StackChecker checker(L, "setScaleX");
+
+    Binder binder(L);
+    Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite"));
+
+    double skewX = luaL_checknumber(L, 2);
+    sprite->setSkewX(skewX);
+
+    return 0;
+}
+
+int SpriteBinder::setSkewY(lua_State* L)
+{
+    StackChecker checker(L, "setScaleY");
+
+    Binder binder(L);
+    Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite"));
+
+    double skewY = luaL_checknumber(L, 2);
+    sprite->setSkewY(skewY);
+
+    return 0;
+}
+
 int SpriteBinder::setPosition(lua_State* L)
 {
 	StackChecker checker(L, "SpriteBinder::setPosition", 0);
@@ -689,7 +776,42 @@ int SpriteBinder::getAnchorPosition(lua_State* L)
     return 3;
 }
 
+int SpriteBinder::setAnchorPoint(lua_State* L)
+{
+    StackChecker checker(L, "SpriteBinder::setAnchorPoint", 0);
 
+    Binder binder(L);
+    Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite", 1));
+
+    lua_Number x = luaL_checknumber(L, 2);
+    lua_Number y = luaL_checknumber(L, 3);
+
+    float x1, y1, x2, y2;
+    sprite->objectBounds(&x1, &y1, &x2, &y2);
+
+    sprite->setRefXY(x * (x2 - x1), y * (y2 - y1));
+
+    return 0;
+}
+
+int SpriteBinder::getAnchorPoint(lua_State* L)
+{
+    StackChecker checker(L, "SpriteBinder::getAnchorPoint", 2);
+
+    Binder binder(L);
+    Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite", 1));
+
+    float x1, y1, x2, y2;
+    sprite->objectBounds(&x1, &y1, &x2, &y2);
+
+    float width = x1 != x2 ? x2 - x1 : 1;
+    float height = y1 != y2 ? y2 - y1 : 1;
+
+    lua_pushnumber(L, sprite->refX() / width);
+    lua_pushnumber(L, sprite->refY() / height);
+
+    return 2;
+}
 
 int SpriteBinder::setScale(lua_State* L)
 {
@@ -725,6 +847,32 @@ int SpriteBinder::getScale(lua_State* L)
 	return 3;
 }
 
+int SpriteBinder::setSkew(lua_State* L)
+{
+    StackChecker checker(L, "SpriteBinder::setSkew", 0);
+
+    Binder binder(L);
+    Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite", 1));
+
+    lua_Number x = luaL_checknumber(L, 2);
+    lua_Number y = luaL_checknumber(L, 3);
+    sprite->setSkewXY(x, y);
+
+    return 0;
+}
+
+int SpriteBinder::getSkew(lua_State* L)
+{
+    StackChecker checker(L, "SpriteBinder::getSkew", 2);
+
+    Binder binder(L);
+    Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite", 1));
+
+    lua_pushnumber(L, sprite->skewX());
+    lua_pushnumber(L, sprite->skewY());
+
+    return 2;
+}
 
 int SpriteBinder::getParent(lua_State* L)
 {
@@ -1000,7 +1148,12 @@ int SpriteBinder::getWidth(lua_State* L)
 	Binder binder(L);
 	Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite"));
 
-	lua_pushnumber(L, sprite->width());
+    if (lua_isboolean(L, 2) && lua_toboolean(L, 2)) {
+        float x1, y1, x2, y2;
+        sprite->objectBounds(&x1, &y1, &x2, &y2);
+        lua_pushnumber(L, x2 > x1 ? x2 - x1 : 0);
+    } else
+        lua_pushnumber(L, sprite->width());
 
 	return 1;
 }
@@ -1012,9 +1165,45 @@ int SpriteBinder::getHeight(lua_State* L)
 	Binder binder(L);
 	Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite"));
 
-	lua_pushnumber(L, sprite->height());
+    if (lua_isboolean(L, 2) && lua_toboolean(L, 2)) {
+        float x1, y1, x2, y2;
+        sprite->objectBounds(&x1, &y1, &x2, &y2);
+        lua_pushnumber(L, y2 > y1 ? y2 - y1 : 0);
+    } else
+        lua_pushnumber(L, sprite->height());
 
 	return 1;
+}
+
+/*
+	simply return the width and height of the sprite
+	DO NOT add extra parameter check to return the non-transformed values.
+	turn to getBounds if you need that.
+*/
+int SpriteBinder::getSize(lua_State* L)
+{
+	StackChecker checker(L, "SpriteBinder::getSize", 2);
+	
+	Binder binder(L);
+	Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite"));
+
+    float minx, miny, maxx, maxy;
+	
+	sprite->localBounds(&minx, &miny, &maxx, &maxy);
+		
+	if (minx > maxx || miny > maxy)
+	{
+		// empty bounds
+		lua_pushnumber(L, 0);
+		lua_pushnumber(L, 0);
+	}
+	else
+	{
+		lua_pushnumber(L, maxx - minx);
+		lua_pushnumber(L, maxy - miny);
+	}
+      
+	return 2;
 }
 
 
@@ -1101,22 +1290,38 @@ int SpriteBinder::getBounds(lua_State* L)
 	return 4;
 }
 
-int SpriteBinder::setBlendFunc(lua_State* L)
+int SpriteBinder::setBlendMode(lua_State* L)
 {
 	StackChecker checker(L, "SpriteBinder::setBlendFunc", 0);
 
 	Binder binder(L);
 	Sprite* sprite = static_cast<Sprite*>(binder.getInstance("Sprite", 1));
-	ShaderEngine::BlendFactor src = static_cast<ShaderEngine::BlendFactor>(luaL_checkinteger(L, 2));
-	ShaderEngine::BlendFactor dst = static_cast<ShaderEngine::BlendFactor>(luaL_checkinteger(L, 3));
 
-	sprite->setBlendFunc(src, dst);
+    if (lua_type(L, 2) == LUA_TSTRING) {
+        std::string m = lua_tostring(L, 2);
+        if (m == "alpha") sprite->setBlendFunc(
+            ShaderEngine::SRC_COLOR, ShaderEngine::ONE_MINUS_SRC_ALPHA);
+        else if (m == "noAlpha") sprite->setBlendFunc(
+            ShaderEngine::ONE, ShaderEngine::ZERO);
+        else if (m == "add") sprite->setBlendFunc(
+            ShaderEngine::ONE, ShaderEngine::ONE);
+        else if (m == "multiply") sprite->setBlendFunc(
+            ShaderEngine::DST_COLOR, ShaderEngine::ONE_MINUS_SRC_ALPHA);
+        else if (m == "screen") sprite->setBlendFunc(
+            ShaderEngine::ONE, ShaderEngine::ONE_MINUS_SRC_COLOR);
+        else luaL_error(L, "Parameter 'blendMode' must be one of the accepted values.");
+    } else {
+        int src = luaL_checkinteger(L, 2);
+        int dst = luaL_checkinteger(L, 3);
+        sprite->setBlendFunc(static_cast<ShaderEngine::BlendFactor>(src),
+                             static_cast<ShaderEngine::BlendFactor>(dst));
+    }
 
-	return 0;
+    return 0;
 }
 
 
-int SpriteBinder::clearBlendFunc(lua_State* L)
+int SpriteBinder::clearBlendMode(lua_State* L)
 {
 	StackChecker checker(L, "SpriteBinder::clearBlendFunc", 0);
 

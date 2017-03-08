@@ -424,7 +424,6 @@ static int bindAll(lua_State* L)
 
 #include "property.c.in"
 #include "texturepack.c.in"
-#include "sprite.c.in"
 #include "compatibility.c.in"
 
 	lua_newtable(L);
@@ -681,11 +680,18 @@ void LuaApplication::callback(int type, void *event)
             if (pluginManager.plugins[i].foreground)
                 pluginManager.plugins[i].suspend(L);
 
+        TimerContainer *timerContainer = application_->getTimerContainer();
+        timerContainer->suspend();
+
         Event event(Event::APPLICATION_SUSPEND);
         application_->broadcastEvent(&event);
     }
     else if (type == GAPPLICATION_RESUME_EVENT)
     {
+
+        TimerContainer *timerContainer = application_->getTimerContainer();
+        timerContainer->resume();
+
         PluginManager& pluginManager = PluginManager::instance();
         for (size_t i = 0; i < pluginManager.plugins.size(); ++i)
             if (pluginManager.plugins[i].foreground)

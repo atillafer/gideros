@@ -17,6 +17,12 @@
 - (void)deleteFramebuffer;
 @end
 
+@interface LuaException : NSException
+@end
+@implementation LuaException
+@end
+
+
 @implementation EAGLView
 
 @dynamic context;
@@ -40,6 +46,8 @@
                                         kEAGLColorFormatRGBA8, kEAGLDrawablePropertyColorFormat,
                                         nil];
 		retinaDisplay = NO;
+        _hasText = NO;
+        _autocorrectionType = UITextAutocorrectionTypeNo;
     }
     
     return self;
@@ -51,6 +59,11 @@
     [context release];
     
     [super dealloc];
+}
+
+- (BOOL)canBecomeFirstResponder
+{
+    return gdr_keyboardVisible();
 }
 
 - (EAGLContext *)context
@@ -114,10 +127,13 @@
             colorRenderbuffer = 0;
         }
     }
+    framebufferDirty=FALSE;
 }
 
 - (void)setFramebuffer
 {
+    if (framebufferDirty)
+            [self deleteFramebuffer];
     if (context)
     {
         [EAGLContext setCurrentContext:context];
@@ -152,7 +168,7 @@
 - (void)layoutSubviews
 {
     // The framebuffer will be re-created at the beginning of the next setFramebuffer method call.
-    [self deleteFramebuffer];
+    framebufferDirty=TRUE;
 }
 
 - (void)enableRetinaDisplay:(BOOL)enable
@@ -176,5 +192,23 @@
     // The framebuffer will be re-created (with the new resolution) at the beginning of the next setFramebuffer method call.
 	[self deleteFramebuffer];
 }
+
+- (void)insertText:(NSString *)text;
+{
+    gdr_keyChar(text);
+}
+
+- (void)deleteBackward;
+{
+    gdr_keyDown(8,0); //Simulate a backspace key press and release
+    gdr_keyUp(8,0);
+}
+
+- (void) reportLuaError:(NSString *)error
+{
+    //GIDEROS-TAG-ATV:LUAERROR//
+    @throw [[LuaException alloc] initWithName:@"Lua" reason:error userInfo:nil];
+}
+
 
 @end

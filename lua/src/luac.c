@@ -3,7 +3,6 @@
 ** Lua compiler (saves bytecodes to files; also list bytecodes)
 ** See Copyright Notice in lua.h
 */
-
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -144,7 +143,7 @@ static const Proto* combine(lua_State* L, int n)
  }
 }
 
-static int writer(lua_State* L, const void* p, size_t size, void* u)
+static int luac_writer(lua_State* L, const void* p, size_t size, void* u)
 {
  UNUSED(L);
  return (fwrite(p,size,1,(FILE*)u)!=1) && (size!=0);
@@ -175,7 +174,7 @@ static int pmain(lua_State* L)
   FILE* D= (output==NULL) ? stdout : fopen(output,"wb");
   if (D==NULL) cannot("open");
   lua_lock(L);
-  luaU_dump(L,f,writer,D,stripping);
+  luaU_dump(L,f,luac_writer,D,stripping);
   lua_unlock(L);
   if (ferror(D)) cannot("write");
   if (fclose(D)) cannot("close");

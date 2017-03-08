@@ -5,6 +5,7 @@
 #-------------------------------------------------
 
 QT       += core gui xml network
+CONFIG   += silent
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -80,7 +81,8 @@ SOURCES += \
     propertyeditingtable.cpp \
     mdiarea.cpp \
     mdisubwindow.cpp \
-    dependencygraph.cpp
+    dependencygraph.cpp \
+    qtutils.cpp
 
 SOURCES += $$files(../libpvrt/*.cpp)
 
@@ -118,7 +120,8 @@ HEADERS  += \
     mdiarea.h \
     mdisubwindow.h \
     pluginschooser.h \
-    dependencygraph.h
+    dependencygraph.h \
+    qtutils.h
 
 FORMS    += mainwindow.ui \
     savechangesdialog.ui \

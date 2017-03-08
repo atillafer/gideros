@@ -5,6 +5,8 @@ android.clean: androidlibs.clean androidso.clean
 android: androidlibs androidso androidplugins
 	rm -rf $(ROOT)/android/GiderosAndroidPlayer/src/com/android
 	rm -rf $(ROOT)/android/GiderosAndroidPlayer/src/com/giderosmobile/android/plugins
+	mkdir -p $(ROOT)/android/GiderosAndroidPlayer/libs
+	cp $(ROOT)/android/GiderosAndroidPlayer/lib/*.jar $(ROOT)/android/GiderosAndroidPlayer/libs/
 	cd $(ROOT)/android/GiderosAndroidPlayer; $(ANT) debug
 	rm -f $(ROOT)/android/GiderosAndroidPlayer/bin/classes/com/giderosmobile/android/player/BuildConfig.class
 	rm -f $(ROOT)/android/GiderosAndroidPlayer/bin/classes/com/giderosmobile/android/player/GiderosAndroidPlayerActivity.class
@@ -20,6 +22,10 @@ android.install: android androidlibs.install androidso.install androidplugins.in
 	cp $(ROOT)/android/GiderosAndroidPlayer/gideros.jar $(RELEASE)/Templates/AndroidStudio/Android\ Template/app/libs	
 	rm -rf $(ROOT)/android/GiderosAndroidPlayer/libs
 	cp -R $(RELEASE)/Templates/Eclipse/Android\ Template/libs $(ROOT)/android/GiderosAndroidPlayer
+	for p in $(PLUGINS_DEFAULT); do \
+	cd $(ROOT)/plugins/$$p/source; if [ -d "Android" ]; then cd Android; fi;	\
+	cp -R libs $(CURDIR)/android/GiderosAndroidPlayer; \
+	cd $(CURDIR); done
 	cd $(ROOT)/android/GiderosAndroidPlayer; $(ANT) debug;
 	mkdir -p $(RELEASE)/Players
 	mv $(ROOT)/android/GiderosAndroidPlayer/bin/GiderosAndroidPlayer-debug.apk $(RELEASE)/Players/GiderosAndroidPlayer.apk
@@ -67,28 +73,19 @@ androidplugins.install: androidplugins $(addsuffix .androidplugin.install,$(PLUG
 
 androidlibs.install: androidlibs
 
-%.androidplugin.install:
-	@mkdir -p $(RELEASE)/All\ Plugins/$*/bin/Android
-	@cd $(ROOT)/plugins/$*/source; echo -n "Installing $*"; \
+%.androidplugin.install: %.plugin.install
+	@mkdir -p $(RELEASE)/All\ Plugins/$(notdir $*)/bin/Android
+	@cd $(ROOT)/plugins/$*/source; echo "Installing $*"; \
 	if [ -d "Android" ]; then cd Android; fi;	\
-	cp -r libs $(CURDIR)/$(RELEASE)/All\ Plugins/$*/bin/Android/; \
+	cp -r libs $(CURDIR)/$(RELEASE)/All\ Plugins/$(notdir $*)/bin/Android/; \
 	if [ -d "res" ]; then \
-	cp -r res $(CURDIR)/$(RELEASE)/All\ Plugins/$*/bin/Android/; \
+	cp -r res $(CURDIR)/$(RELEASE)/All\ Plugins/$(notdir $*)/bin/Android/; \
 	fi;\
 	if [ -d "assets" ]; then \
-	cp -r assets $(CURDIR)/$(RELEASE)/All\ Plugins/$*/bin/Android/; \
+	cp -r assets $(CURDIR)/$(RELEASE)/All\ Plugins/$(notdir $*)/bin/Android/; \
 	fi;\
 	if [ -d "src" ]; then \
-	cp -r src $(CURDIR)/$(RELEASE)/All\ Plugins/$*/bin/Android/; \
+	cp -r src $(CURDIR)/$(RELEASE)/All\ Plugins/$(notdir $*)/bin/Android/; \
 	fi;
-	@if [ -n "$(findstring $*,$(PLUGINS_DEFAULT))" ]; then \
-	echo " DEFAULT";\
-	cd $(ROOT)/plugins/$*/source; if [ -d "Android" ]; then cd Android; fi;	\
-	cp -R libs $(CURDIR)/$(RELEASE)/Templates/Eclipse/Android\ Template/; \
-	cp -R libs/. $(CURDIR)/$(RELEASE)/Templates/AndroidStudio/Android\ Template/app/src/main/jniLibs/; \
-	if [ -d "com" ]; then \
-	cp -R com $(CURDIR)/$(ROOT)/android/GiderosAndroidPlayer/src;\
-	fi; else echo ""; fi
-	@#cp -R com $(CURDIR)/$(RELEASE)/Templates/Eclipse/Android\ Template/src;\
 
 		

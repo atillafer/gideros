@@ -1,24 +1,90 @@
 <export name="APK" 
+    label="Android"
 	description="Export as an Android APK file">
 	<property name="packageName" type="string" title="Package name" description="" default="com.yourdomain.yourapp" />
-	<property name="androidPath" type="dir" title="Android SDK Directory" description="Directory of your Android SDK" default="" />
-	<property name="javaPath" type="dir" title="JDK Directory" description="Directory of your JDK installation" default="" />
 	<property name="androidTarget" type="string" title="Android Target Version" description="The android SDK version you wish to compile with" default="19" />
-	<property name="androidSdk" type="string" title="Android SDK Version" description="The android SDK version to be used for compiling" default="23" />
-	<property name="androidTools" type="string" title="Android Tools Version" description="The android tools version to be used for compiling" default="23.0.1" />
+	<property name="buildApk" type="boolean" title="Build APK file" description="Build the APK file directly, otherwise outputs the Android Studio project" default="1" />	
+	<property name="deployApk" type="boolean" title="Install APK to device" description="Try to deploy APK to connected device" default="0" />	
 	<property name="keyStore" type="file" title="Key store" description="Path to keystore for signing" default="" />
 	<property name="keyAlias" type="string" title="Key alias" description="Alias of the key to use" default="" />
+	<property name="androidPath" type="dir" title="Android SDK Directory" description="Directory of your Android SDK (optional)" default="" />
+	<property name="javaPath" type="dir" title="JDK Directory" description="Directory of your JDK installation (optional)" default="" />
+	<property name="androidSdk" type="string" title="Android SDK Version" description="The android SDK version to be used for compiling (optional)" default="" />
+	<property name="androidTools" type="string" title="Android Tools Version" description="The android tools version to be used for compiling (optional)" default="" />
 	<rules>
-		<ask key="local.keyStorePass" type="string" title="Key store password" question="Enter your key store password:" default="" />
+	<lua>
+require "lfs"
+
+local java=Export.getProperty("export.javaPath")
+if lfs.attributes(java,"mode")~="directory" then
+	if Export.getProperty("sys.exeExtension")==".exe" then
+		java="C:/Program Files/Android/Android Studio/jre"
+	else
+		java="/Applications/Android Studio.app/Contents/jre/jdk/Contents/Home/jre"
+	end
+	Export.setProperty("export.javaPath",java)
+end
+print("Java Path:"..java)
+
+local home=Export.getProperty("export.androidPath")
+if lfs.attributes(home,"mode")~="directory" then
+	home=Export.getProperty("sys.homeDir")
+	if Export.getProperty("sys.exeExtension")==".exe" then
+    	home=home.."/AppData/Local/Android/sdk"
+	else
+		home=home.."/Library/Android/sdk"
+	end
+	Export.setProperty("export.androidPath",home)
+end
+print("Android SDK Path:"..home)
+
+local platforms=home.."/platforms"
+local sdkVer=Export.getProperty("export.androidSdk")
+if lfs.attributes(platforms.."/android-"..sdkVer,"mode")~="directory" then
+	sdkVer=0
+	for adir in lfs.dir(platforms) do
+		if lfs.attributes(platforms.."/"..adir,"mode")=="directory" then
+		    if adir:lower():sub(1,8)=="android-" then
+	    		sdkVer=math.max(tonumber(adir:sub(9)),sdkVer)
+	    	end
+		end
+	end
+	Export.setProperty("export.androidSdk",sdkVer)
+end
+print("Android SDK Version:"..sdkVer)
+
+local tools=home.."/build-tools"
+local buildVer=Export.getProperty("export.androidTools")
+if lfs.attributes(tools.."/"..buildVer,"mode")~="directory" then
+	buildVer=""
+	for adir in lfs.dir(tools) do
+		if lfs.attributes(tools.."/"..adir,"mode")=="directory" then
+	    	local _,dots=adir:gsub("%.",".")
+	    	if adir~=".." and dots==2 and adir>buildVer then
+	    		buildVer=adir
+	    	end
+		end
+	end
+	Export.setProperty("export.androidTools",buildVer)
+end
+print("Android Build Tools:"..buildVer)
+	</lua>
+		<set key="project.package" value="[[[export.packageName]]]"/>
 		<set key="local.noSigning" value="//"/>
 		<set key="local.isUnsigned" value="-unsigned"/>
-		<if condition="[[[neq:[[[local.keyStorePass]]]:]]]">
-			<ask key="local.keyAliasPass" type="string" title="Key alias password" question="Enter your key alias password:" default="[[[local.keyStorePass]]]" />
-			<set key="local.noSigning" value=""/>
-			<set key="local.isUnsigned" value=""/>
+		<if condition="[[[neq:[[[export.keyAlias]]]:]]]">
+			<ask key="secret.keyStorePass" type="string" title="Key store password" question="Enter your key store password:" default="" />
+			<if condition="[[[neq:[[[secret.keyStorePass]]]:]]]">
+				<ask key="secret.keyAliasPass" type="string" title="Key alias password" question="Enter your key alias password:" default="[[[secret.keyStorePass]]]" />
+				<set key="local.noSigning" value=""/>
+				<set key="local.isUnsigned" value=""/>
+			</if>
 		</if>
-		<mkdir>tmp</mkdir>
-		<cd>tmp</cd>
+		<if condition="[[[export.buildApk]]]">
+			<rmdir>tmp</rmdir>
+			<mkdir>tmp</mkdir>
+			<cd>tmp</cd>
+		</if>
 		<if condition="[[[project.autorotation]]]">
 			<set key="local.orientation" value="sensorPortrait"/>
 			<if condition="[[[band:[[[project.orientation]]]:1]]]">
@@ -37,29 +103,46 @@
 				<set key="local.orientation" value="reverseLandscape"/>
 			</if>
 		</if>		
+		<set key="local.showSplash" value="true"/>
+		<if condition="[[[eq:[[[project.disableSplash]]]:1]]]">
+			<set key="local.showSplash" value="false"/>
+		</if>
 		<template name="Android Template" path="[[[sys.giderosDir]]]/Templates/AndroidStudio/Android Template">
 			<replacelist wildcards="*.xml;*.java;*.gradle">
 				<replace orig="AndroidTemplate" by="[[[project.namews]]]"/>
+		        <replace orig="Android Template App Name" by="[[[project.app_name]]]"/>
 				<replace orig="Android Template" by="[[[project.name]]]"/>
 				<replace orig="com.giderosmobile.androidtemplate" by="[[[export.packageName]]]"/>
         		<replace orig="android:targetSdkVersion=&quot;19&quot;" by="android:targetSdkVersion=&quot;[[[export.androidTarget]]]&quot;"/>
         		<replace orig="android:versionCode=&quot;1&quot;" by="android:versionCode=&quot;[[[project.version_code]]]&quot;"/>
         		<replace orig="android:versionName=&quot;1.0&quot;" by="android:versionName=&quot;[[[project.version]]]&quot;"/>
         		<replace orig="android:screenOrientation=&quot;portrait&quot;" by="android:screenOrientation=&quot;[[[local.orientation]]]&quot;"/>
-        		<replace orig="compileSdkVersion 21" by="compileSdkVersion [[[export.androidSdk]]]" />
-        		<replace orig="buildToolsVersion &quot;22.0.0&quot;" by="buildToolsVersion &quot;[[[export.androidTools]]]&quot;" />
+        		<replace orig="boolean showSplash = true;" by="boolean showSplash = [[[local.showSplash]]];"/>
+        		<replace orig="Color.parseColor(&quot;#ffffff&quot;)" by="Color.parseColor(&quot;[[[project.backgroundColor]]]&quot;)"/>
+        		<replace orig="compileSdkVersion 23" by="compileSdkVersion [[[export.androidSdk]]]" />
+        		<replace orig="buildToolsVersion &quot;23.0.2&quot;" by="buildToolsVersion &quot;[[[export.androidTools]]]&quot;" />
 				<replace orig="targetSdkVersion 19" by="targetSdkVersion [[[export.androidTarget]]]"/>
 				<replace orig="jksgid_StoreFile" by="[[[export.keyStore]]]"/>
 				<replace orig="jksgid_KeyAlias" by="[[[export.keyAlias]]]"/>
-				<replace orig="jksgid_StorePass" by="[[[local.keyStorePass]]]"/>
-				<replace orig="jksgid_KeyPass" by="[[[local.keyAliasPass]]]"/>
+				<replace orig="jksgid_StorePass" by="[[[secret.keyStorePass]]]"/>
+				<replace orig="jksgid_KeyPass" by="[[[secret.keyAliasPass]]]"/>
 				<replace orig="//signingConfig" by="[[[local.noSigning]]]signingConfig"/>
 				<replace orig="//storeFile" by="[[[local.noSigning]]]storeFile"/>
         	</replacelist>		
 		</template>
+		<if condition="[[[eq:[[[sys.exporType]]]:player]]]">
+    	<template name="AndroidManifest" path="">
+        	<replacelist wildcards="AndroidManifest.xml">
+	            <append>
+            		<orig><![CDATA[<!-- TAG:MANIFEST-EXTRA -->]]></orig>
+        	    	<by><![CDATA[<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>]]></by>
+    	        </append>
+        	</replacelist>
+    	</template>
+		</if>
 		<mkdir>app/src/main/assets/assets</mkdir>
 		<cd>app/src/main/assets/assets</cd>
-		<exportAssets jet="mp3;mp4;png;jpg;jpeg;wav" compile="1" />
+		<exportAssets jet="mp3;mp4;png;jpg;jpeg;wav" compile="1" dontEncryptExts="mp3" />
 		<exportAllfilesTxt/>
 		<exportLuafilesTxt/>
 		<exportPropertiesBin/>
@@ -68,20 +151,50 @@
 		<appIcon width="48" height="48" dest="app/src/main/res/drawable-mdpi/icon.png"/>
 		<appIcon width="72" height="72" dest="app/src/main/res/drawable-hdpi/icon.png"/>
 		<appIcon width="96" height="96" dest="app/src/main/res/drawable-xhdpi/icon.png"/>
+		<appIcon width="96" height="96" dest="app/src/main/res/drawable/icon.png"/>
 		<appIcon width="144" height="144" dest="app/src/main/res/drawable-xxhdpi/icon.png"/>
 		<appIcon width="192" height="192" dest="app/src/main/res/drawable-xxxhdpi/icon.png"/>
-		<applyPlugins/>
-		<set key="local.gradleCmd" value="gradlew"/>
-		<if condition="[[[eq:[[[sys.exeExtension]]]:.exe]]]">
-			<set key="local.gradleCmd" value="&quot;cmd.exe&quot; /c gradlew.bat"/>
+		<tvIcon width="732" height="412" dest="app/src/main/res/drawable-xhdpi/ouya_icon.png"/>
+		<tvIcon width="320" height="180" alpha="0" dest="app/src/main/res/drawable/banner.png"/>
+		<if condition="[[[not:[[[band:[[[project.orientation]]]:1]]]]]]">
+			<splashVertical width="200" height="320" dest="app/src/main/res/drawable-ldpi/splash.png"/>
+			<splashVertical width="320" height="480" dest="app/src/main/res/drawable-mdpi/splash.png"/>
+			<splashVertical width="480" height="800" dest="app/src/main/res/drawable-hdpi/splash.png"/>
+			<splashVertical width="720" height="1280" dest="app/src/main/res/drawable-xhdpi/splash.png"/>
+			<splashVertical width="960" height="1600" dest="app/src/main/res/drawable-xxhdpi/splash.png"/>
+			<splashVertical width="1280" height="1920" dest="app/src/main/res/drawable-xxxhdpi/splash.png"/>
 		</if>
-		<exec>
-			<env key="JAVA_HOME" value="[[[export.javaPath]]]"/>
-			<env key="ANDROID_HOME" value="[[[export.androidPath]]]"/>
-			[[[local.gradleCmd]]] assembleRelease
-		</exec>
-		<cp src="app/build/outputs/apk/app-release[[[local.isUnsigned]]].apk" dst="../[[[project.namews]]][[[local.isUnsigned]]].apk"/>
-		<cd>..</cd>
-		<rmdir>tmp</rmdir>
+		<if condition="[[[band:[[[project.orientation]]]:1]]]">
+			<splashHorizontal width="320" height="200" dest="app/src/main/res/drawable-ldpi/splash.png"/>
+			<splashHorizontal width="480" height="320" dest="app/src/main/res/drawable-mdpi/splash.png"/>
+			<splashHorizontal width="800" height="480" dest="app/src/main/res/drawable-hdpi/splash.png"/>
+			<splashHorizontal width="1280" height="720" dest="app/src/main/res/drawable-xhdpi/splash.png"/>
+			<splashHorizontal width="1600" height="960" dest="app/src/main/res/drawable-xxhdpi/splash.png"/>
+			<splashHorizontal width="1920" height="1280" dest="app/src/main/res/drawable-xxxhdpi/splash.png"/>
+		</if>
+		<applyPlugins/>
+		<if condition="[[[export.buildApk]]]">
+			<set key="local.gradleCmd" value="&quot;cmd.exe&quot; /c gradlew.bat"/>
+    	    <if condition="[[[neq:[[[sys.exeExtension]]]:.exe]]]">
+        	    <set key="local.gradleCmd" value="bash gradlew"/>
+        	</if>
+			<exec>
+				<env key="JAVA_HOME" value="[[[export.javaPath]]]"/>
+				<env key="ANDROID_HOME" value="[[[export.androidPath]]]"/>
+				[[[local.gradleCmd]]] assembleRelease
+			</exec>
+			<cp src="app/build/outputs/apk/app-release[[[local.isUnsigned]]].apk" dst="../[[[project.namews]]][[[local.isUnsigned]]].apk"/>
+			<cd>..</cd>
+			<rmdir>tmp</rmdir>
+			<if condition="[[[export.deployApk]]]">
+				<set key="local.adbCmd" value="[[[export.androidPath]]]\\platform-tools\\adb.exe"/>
+	    	    <if condition="[[[neq:[[[sys.exeExtension]]]:.exe]]]">
+					<set key="local.adbCmd" value="[[[export.androidPath]]]/platform-tools/adb"/>
+        		</if>
+				<exec>
+					[[[local.adbCmd]]] install -rt [[[project.namews]]][[[local.isUnsigned]]].apk
+				</exec>
+			</if>
+		</if>
 	</rules>
 </export>

@@ -1,8 +1,8 @@
-buildqtapp: buildqtlibs buildplugins buildqt
+buildqtapp: buildqtlibs buildqtplugins buildqt
 
-qtapp.install: qtlibs.install plugins.install qt.install
+qtapp.install: qtlibs.install qtplugins.install qt.install
 
-qtapp.clean: qtlibs.clean plugins.clean qt.clean
+qtapp.clean: qtlibs.clean qtplugins.clean qt.clean
 
 
 vpath %.a libgideros/release:libgvfs/release:libgid/release:lua/release:libgid/external/openal-soft-1.13/build/mingw48_32
@@ -29,14 +29,14 @@ qtlibs.install: buildqtlibs
 	cp $(ROOT)/libgideros/release/gideros.dll $(RELEASE)
 	cp $(ROOT)/libpystring/release/pystring.dll $(RELEASE)
 
-%.plugin:
+%.qtplugin:
 	cd $(ROOT)/plugins/$*/source; if [ -d "Desktop" ]; then cd Desktop; fi; $(QMAKE) *.pro
 	cd $(ROOT)/plugins/$*/source; if [ -d "Desktop" ]; then cd Desktop; fi; $(MINGWMAKE) release
 
-%.plugin.clean:
+%.qtplugin.clean:
 	cd $(ROOT)/plugins/$*/source; if [ -d "Desktop" ]; then cd Desktop; fi; $(MINGWMAKE) clean
 
-%.plugin.install:
+%.qtplugin.install:
 	mkdir -p $(RELEASE)/Plugins
 	mkdir -p $(RELEASE)/Templates/Qt/WindowsDesktopTemplate/Plugins
 	mkdir -p $(RELEASE)/All\ Plugins/$*/bin/Windows
@@ -50,13 +50,16 @@ buildqt: $(addsuffix .qmake.rel,texturepacker fontcreator ui) player.qmake5.rel 
 
 qt.clean: $(addsuffix .qmake.clean,texturepacker fontcreator ui player gdrdeamon gdrbridge gdrexport desktop)
 
-qt.install: buildqt qt5.install qt.player
+qt.install: buildqt qt5.install qt.player tools
 	cp $(ROOT)/ui/release/GiderosStudio.exe $(RELEASE)
 	cp $(ROOT)/player/release/GiderosPlayer.exe $(RELEASE)
 	cp $(ROOT)/texturepacker/release/GiderosTexturePacker.exe $(RELEASE)
 	cp $(ROOT)/fontcreator/release/GiderosFontCreator.exe $(RELEASE)
 	cp -R $(ROOT)/ui/Resources $(RELEASE)
 	cd $(ROOT)/ui/;tar cf - --exclude=Tools/lua --exclude Tools/luac --exclude Tools/make Tools | (cd ../$(RELEASE) && tar xvf - )
+	cp $(ROOT)/lua/src/lua.exe $(RELEASE)/Tools
+	cp $(ROOT)/lua/src/luac.exe $(RELEASE)/Tools
+	cp $(ROOT)/lua/src/lua51.dll $(RELEASE)/Tools
 	mkdir -p $(RELEASE)/Templates
 	#Other templates	
 	cp -R $(ROOT)/ui/Templates/*.gexport $(RELEASE)/Templates
@@ -109,11 +112,11 @@ qt5.install:
 	mkdir -p $(RELEASE)/Tools
 	for f in $(QT5DLLTOOLS); do cp $(QT)/bin/$$f.dll $(RELEASE)/Tools; done
 	
-buildplugins: $(addsuffix .plugin,$(PLUGINS_WIN))
+buildqtplugins: $(addsuffix .qtplugin,$(PLUGINS_WIN))
 
-plugins.clean: $(addsuffix .plugin.clean,$(PLUGINS_WIN))
+qtplugins.clean: $(addsuffix .qtplugin.clean,$(PLUGINS_WIN))
 
-plugins.install: buildplugins $(addsuffix .plugin.install,$(PLUGINS_WIN))
+qtplugins.install: buildqtplugins $(addsuffix .qtplugin.install,$(PLUGINS_WIN))
 
 %.qmake.clean:
 	cd $(ROOT)/$*; $(MINGWMAKE) clean
@@ -135,15 +138,12 @@ plugins.install: buildplugins $(addsuffix .plugin.install,$(PLUGINS_WIN))
 	cd $(ROOT)/$*; $(MINGWMAKE) debug
 
 tools:
-	cd $(ROOT)/lua514u/src; gcc -o luac $(addsuffix .c,print lapi lauxlib lcode ldebug ldo ldump\
+	cd $(ROOT)/lua/src; gcc -I. -DDESKTOP_TOOLS -o luac $(addsuffix .c,print lapi lauxlib lcode ldebug ldo ldump\
 			 lfunc llex lmem lobject lopcodes lparser lstate lstring ltable ltm lundump lvm lzio luac lgc)
-	cd $(ROOT)/lua514u/src; gcc -shared -o lua51.dll -Wl,--out-implib,lua51.a $(addsuffix .c,lapi lauxlib lcode ldebug ldo ldump\
+	cd $(ROOT)/lua/src; gcc -I. -DDESKTOP_TOOLS -shared -o lua51.dll -Wl,--out-implib,lua51.a $(addsuffix .c,lapi lauxlib lcode ldebug ldo ldump\
 			 lfunc llex lmem lobject lopcodes lparser lstate lstring ltable ltm lundump lvm lzio lgc\
-			 linit lbaselib ldblib liolib lmathlib loslib ltablib lstrlib loadlib)
-	cd $(ROOT)/lua514u/src; gcc -o lua lua.c lua51.a
-	#cd $(ROOT)/lua514u/src; gcc -o lua $(addsuffix .c,lapi lauxlib lcode ldebug ldo ldump\
-			 lfunc llex lmem lobject lopcodes lparser lstate lstring ltable ltm lundump lvm lzio lua lgc\
-			 linit lbaselib ldblib liolib lmathlib loslib ltablib lstrlib loadlib)
+			 linit lbaselib ldblib liolib lmathlib loslib ltablib lstrlib loadlib lutf8lib lint64)
+	cd $(ROOT)/lua/src; gcc -I. -DDESKTOP_TOOLS -o lua lua.c lua51.a
 	
 bundle:
 	rm -rf $(RELEASE).Tmp
@@ -155,12 +155,14 @@ bundle:
 	mv $(RELEASE).Tmp/* $(RELEASE)
 	rm -rf $(RELEASE).Tmp
 	cd $(RELEASE).Final; if [ -f ../$(notdir $(RELEASE))/BuildMac.zip ]; then unzip -o ../$(notdir $(RELEASE))/BuildMac.zip; fi
-	cd plugins; git archive master | tar -x -C ../$(RELEASE).Final/All\ Plugins
-	-wget --recursive --no-clobber --page-requisites --html-extension --convert-links --restrict-file-names=windows --domains docs.giderosmobile.com --no-parent http://docs.giderosmobile.com/
-	rm -rf $(RELEASE).Final/Documentation
-	cp -R docs.giderosmobile.com $(RELEASE).Final/Documentation
-	-wget "http://docs.giderosmobile.com/reference/autocomplete.php" -O $(RELEASE).Final/Resources/gideros_annot.api
+	-cd plugins; git archive master | tar -x -C ../$(RELEASE).Final/All\ Plugins
 
 bundle.win:
-	cd plugins; git archive master | tar -x -C ../$(RELEASE)/All\ Plugins
+	-cd plugins; git archive master | tar -x -C ../$(RELEASE)/All\ Plugins
+	
+bundle.installer: bundle
+	cp $(ROOT)\Release\gideros_mui2.nsi $(RELEASE).Final
+	cd $(RELEASE).Final; $(NSIS) gideros_mui2.nsi
+	mv $(RELEASE).Final/Gideros.exe $(ROOT)/
+	
 	

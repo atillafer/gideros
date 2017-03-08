@@ -17,12 +17,14 @@
 #include "ExportCommon.h"
 #include "ExportBuiltin.h"
 #include "ExportXml.h"
+#include "ExportLua.h"
 
 static bool readProjectFile(const QString& fileName,
                             ProjectProperties &properties,
                             std::vector<std::pair<QString, QString> > &fileList,
                             std::vector<QString> &folderList,
-                            DependencyGraph &dependencyGraph)
+                            DependencyGraph &dependencyGraph,
+							std::set<QString> &noEncryption)
 {
     ProjectProperties &properties_ = properties;
     std::vector<std::pair<QString, QString> > &fileList_ = fileList;
@@ -61,6 +63,7 @@ static bool readProjectFile(const QString& fileName,
     {
         fileList_.clear();
         dependencyGraph_.clear();
+        noEncryption.clear();
         std::vector<std::pair<QString, QString> > dependencies_;
 
         std::stack<QDomNode> stack;
@@ -99,6 +102,9 @@ static bool readProjectFile(const QString& fileName,
                     bool excludeFromExecution = e.hasAttribute("excludeFromExecution") && e.attribute("excludeFromExecution").toInt();
                     dependencyGraph_.addCode(fileName, excludeFromExecution);
                 }
+
+                if (e.hasAttribute("excludeFromEncryption") && e.attribute("excludeFromEncryption").toInt())
+                	noEncryption.insert(n);
 
                 continue;
             }
@@ -428,7 +434,7 @@ int main(int argc, char *argv[])
     }
 
     DependencyGraph dependencyGraph;
-    if (readProjectFile(projectFileName, ctx.properties, ctx.fileQueue, ctx.folderList, dependencyGraph) == false)
+    if (readProjectFile(projectFileName, ctx.properties, ctx.fileQueue, ctx.folderList, dependencyGraph, ctx.noEncryption) == false)
     {
         // error is displayed at readProjectFile function
         return 1;
@@ -460,6 +466,9 @@ int main(int argc, char *argv[])
      ctx.topologicalSort=topologicalSort;
      ctx.encryptCode=encryptCode;
      ctx.encryptAssets=encryptAssets;
+     ctx.appName=ctx.properties.app_name;
+     if (ctx.appName.isEmpty())
+    	 ctx.appName=ctx.base;
 
      //Encryption key replacement info
      QStringList wildcards2;
@@ -474,10 +483,13 @@ int main(int argc, char *argv[])
      replaceList2 << qMakePair(assetsPrefix + encryptionZero, assetsPrefixRnd + assetsKey);
      ctx.replaceList << replaceList2;
 
+     ctx.noEncryptionExt.insert("ttf"); // TTF files do not pass through gvfs!
+     ExportLUA_Init(&ctx);
      if (ctx.deviceFamily==e_Xml)
     	 ExportXml::exportXml(xmlExports[ctx.platform],false,&ctx);
      else
     	 ExportBuiltin::doExport(&ctx);
+     ExportLUA_Cleanup(&ctx);
 
     return 0;
 }

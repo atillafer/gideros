@@ -50,12 +50,15 @@ struct ProjectProperties
         mouseTouchOrder = 0;
 
         // export options
+        app_name="";
 		architecture = 0;
         android_template = 0;
         exportMode = 0;
 		iosDevice = 0;
         version = "1.0";
         version_code = 1;
+        build_number = 1;
+
         ios_bundle = "com.yourdomain.";
 		packageName = "com.yourdomain.yourapp";
         osx_org = "GiderosMobile";
@@ -76,6 +79,7 @@ struct ProjectProperties
         splash_v_image="";
         disableSplash = false;
         backgroundColor = "#ffffff";
+        splashScaleMode = 0;
         plugins.clear();
         exports.clear();
     }
@@ -104,8 +108,10 @@ struct ProjectProperties
     int android_template;
 	int exportMode;
 	int iosDevice;
+	QString app_name;
     int version_code;
     QString version;
+    int build_number;
     QString ios_bundle;
 	QString packageName;
     QString osx_org;
@@ -128,6 +134,7 @@ struct ProjectProperties
     QSet<Export> exports;
     bool encryptCode;
     bool encryptAssets;
+    int splashScaleMode;
 };
 
 inline bool operator==(const ProjectProperties::Plugin &p1, const ProjectProperties::Plugin &p2) { return (p1.name==p2.name)&&(p1.properties==p2.properties); };

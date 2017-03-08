@@ -52,8 +52,8 @@ ExportProjectDialog::ExportProjectDialog(ProjectProperties* properties, bool lic
     osxCat["Trivia Games"] = "public.app-category.trivia-games";
     osxCat["Word Games"] = "public.app-category.word-games";
 
-    exportTypes << "iOS" << "Android" << "Windows" << "MacOSX"
-    		<< "WinRT" << "GApp" << "Win32" << "Html5";
+    exportTypes << "iOS" << "Windows" << "MacOSX"
+    		<< "WinRT" << "GApp" << "Win32" << "Html5" << "Android";
 
 	properties_ = properties;
 
@@ -100,7 +100,7 @@ ExportProjectDialog::ExportProjectDialog(ProjectProperties* properties, bool lic
     }
 
     //XML based templates
-    xmlTabStart=ui->architectureTab->count();
+    xmlTabCount=0;
     QDir sourceDir("Templates");
    	QStringList filters;
     filters << "*.gexport";
@@ -121,17 +121,20 @@ ExportProjectDialog::ExportProjectDialog(ProjectProperties* properties, bool lic
 
             QDomElement exporter = doc.documentElement();
             QString exname=exporter.attribute("name");
-            exportTypes << exname;
+            exportTypes.prepend(exname);
             QMap<QString,QString> props;
         	for (QSet<ProjectProperties::Export>::const_iterator it=properties_->exports.begin();it!=properties_->exports.end(); it++)
         		if ((*it).name==exname)
         			props=(*it).properties;
 
         	PropertyEditingTable *table=new PropertyEditingTable();
-            ui->architectureTab->addTab(table,exname);
-            ui->architecture->addItem(exname);
+            QString exlabel=exporter.attribute("label");
+            if (exlabel.isEmpty())
+            	exlabel=exname;
+            ui->architectureTab->insertTab(0,table,exlabel);
+            ui->architecture->insertItem(0,exlabel);
             table->fill(exporter,props);
-
+            xmlTabCount++;
 	}
 
 	ui->architecture->setCurrentIndex(properties_->architecture);
@@ -245,9 +248,9 @@ void ExportProjectDialog::onAccepted()
     properties_->html5_mem = ui->html5_mem->text().toInt();
     properties_->plugins=plugins;
 
-    for (int tab=xmlTabStart;tab<ui->architectureTab->count();tab++)
+    for (int tab=0;tab<xmlTabCount;tab++)
     {
-    	QString exname=ui->architectureTab->tabText(tab);
+    	QString exname=exportTypes[tab];
     	PropertyEditingTable *table=(PropertyEditingTable *)ui->architectureTab->widget(tab);
      	for (QSet<ProjectProperties::Export>::iterator it=properties_->exports.begin();it!=properties_->exports.end();)
         		if ((*it).name==exname)

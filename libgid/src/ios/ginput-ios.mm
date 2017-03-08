@@ -1,14 +1,16 @@
-#if TARGET_OS_TV == 0
 #include <ginput.h>
 #include <ginput-ios.h>
 #include <UIKit/UIKit.h>
+#if TARGET_OS_TV == 0
 #import <CoreMotion/CoreMotion.h>
+#endif
 #include <map>
 #include <vector>
 #include <gevent.h>
 
 class GGInputManager;
 
+#if TARGET_OS_TV == 0
 @interface GGAccelerometer : NSObject<UIAccelerometerDelegate>
 {
     UIAccelerometer *accelerometer_;
@@ -73,17 +75,19 @@ class GGInputManager;
 }
 
 @end
-
+#endif
 
 class GGInputManager
 {
 public:
     GGInputManager()
     {
+#if TARGET_OS_TV == 0
         accelerometer_ = [[GGAccelerometer alloc] init];
 
 		if (NSClassFromString(@"CMMotionManager") != nil)
 			motionManager_ = [[CMMotionManager alloc] init];
+#endif
 		
 		accelerometerStartCount_ = 0;
 		gyroscopeStartCount_ = 0;
@@ -93,7 +97,8 @@ public:
         mouseTouchOrder_= 0;
 		
         touchPoolMutex_ = [[NSLock alloc] init];
-		mousePoolMutex_ = [[NSLock alloc] init];
+        mousePoolMutex_ = [[NSLock alloc] init];
+        keyPoolMutex_ = [[NSLock alloc] init];
         
         gevent_AddCallback(posttick_s, this);
         
@@ -102,10 +107,12 @@ public:
     
     ~GGInputManager()
     {
+#if TARGET_OS_TV == 0
         [accelerometer_ release];
 		if (motionManager_)
 			[motionManager_ release];		
-
+#endif
+        
         gevent_RemoveCallbackWithGid(gid_);
         
         gevent_RemoveCallback(posttick_s, this);
@@ -143,40 +150,59 @@ public:
 		[mousePoolMutex_ unlock];
         
         [mousePoolMutex_ release];
+        
+        [keyPoolMutex_ lock];
+        for (size_t i = 0; i < keyPool1_.size(); ++i)
+            delete keyPool1_[i];
+        for (size_t i = 0; i < keyPool2_.size(); ++i)
+            delete keyPool2_[i];
+        [keyPoolMutex_ unlock];
+        
+        [keyPoolMutex_ release];
     }
     
     bool isAccelerometerAvailable()
     {
+#if TARGET_OS_TV == 0
         return true;
+#else
+        return false;
+#endif
     }
     
     void startAccelerometer()
     {
+#if TARGET_OS_TV == 0
 		accelerometerStartCount_++;
 		if (accelerometerStartCount_ == 1)
 			[accelerometer_ start];
+#endif
     }
     
     void stopAccelerometer()
     {
+#if TARGET_OS_TV == 0
 		if (accelerometerStartCount_ > 0)
 		{
 			accelerometerStartCount_--;
 			if (accelerometerStartCount_ == 0)
 				[accelerometer_ stop];
 		}
+#endif
     }
     
     void getAcceleration(double *x, double *y, double *z)
     {
         double x2 = 0, y2 = 0, z2 = 0;
 
+#if TARGET_OS_TV == 0
         if (accelerometerStartCount_ > 0)
         {
             x2 = accelerometer_.x;
             y2 = accelerometer_.y;
             z2 = accelerometer_.z;
         }
+#endif
         
         if (x)
             *x = x2;
@@ -188,7 +214,11 @@ public:
 	
 	bool isGyroscopeAvailable()
     {
+#if TARGET_OS_TV == 0
         return motionManager_ && [motionManager_ isGyroAvailable];
+#else
+        return false;
+#endif
     }
 	
 	void startGyroscope()
@@ -196,9 +226,11 @@ public:
 		if (!isGyroscopeAvailable())
 			return;
 		
+#if TARGET_OS_TV == 0
 		gyroscopeStartCount_++;
 		if (gyroscopeStartCount_ == 1)
 			[motionManager_ startGyroUpdates];
+#endif
     }
     
     void stopGyroscope()
@@ -206,18 +238,21 @@ public:
 		if (!isGyroscopeAvailable())
 			return;
 
+#if TARGET_OS_TV == 0
 		if (gyroscopeStartCount_ > 0)
 		{
 			gyroscopeStartCount_--;
 			if (gyroscopeStartCount_ == 0)
 				[motionManager_ stopGyroUpdates];
 		}
+#endif
     }
 	
 	void getGyroscopeRotationRate(double *x, double *y, double *z)
     {
         double x2 = 0, y2 = 0, z2 = 0;
 		
+#if TARGET_OS_TV == 0
         if (gyroscopeStartCount_ > 0)
         {
 			CMRotationRate rotationRate = motionManager_.gyroData.rotationRate;
@@ -225,6 +260,7 @@ public:
             y2 = rotationRate.y;
             z2 = rotationRate.z;
         }
+#endif
         
         if (x)
             *x = x2;
@@ -253,11 +289,17 @@ private:
 		touchPool2_.clear();
 		[touchPoolMutex_ unlock];
 
-		[mousePoolMutex_ lock];
+        [mousePoolMutex_ lock];
         for (size_t i = 0; i < mousePool2_.size(); ++i)
             mousePool1_.push_back(mousePool2_[i]);
         mousePool2_.clear();
-		[mousePoolMutex_ unlock];
+        [mousePoolMutex_ unlock];
+
+        [keyPoolMutex_ lock];
+        for (size_t i = 0; i < keyPool2_.size(); ++i)
+            keyPool1_.push_back(keyPool2_[i]);
+        keyPool2_.clear();
+        [keyPoolMutex_ unlock];
     }
     
 public:
@@ -664,15 +706,103 @@ private:
     std::vector<ginput_MouseEvent*> mousePool2_;
     NSLock *touchPoolMutex_;
     NSLock *mousePoolMutex_;
+    NSLock *keyPoolMutex_;
     
     int isMouseToTouchEnabled_;
     int isTouchToMouseEnabled_;
     int mouseTouchOrder_;
 
+public:
+    int keyDown(int realCode, int repeatCount)
+    {
+        int keyCode = convertKeyCode(realCode);
+        
+        if (repeatCount == 0)
+        {
+            ginput_KeyEvent *event = newKeyEvent(keyCode, realCode);
+            gevent_EnqueueEvent(gid_, callback_s, GINPUT_KEY_DOWN_EVENT, event, 0, this);
+            deleteKeyEvent(event);
+        }
+        
+        return 1;
+    }
+    
+    int keyUp(int realCode, int repeatCount)
+    {
+        int keyCode = convertKeyCode(realCode);
+        
+        if (repeatCount == 0)
+        {
+            ginput_KeyEvent *event = newKeyEvent(keyCode, realCode);
+            gevent_EnqueueEvent(gid_, callback_s, GINPUT_KEY_UP_EVENT, event, 0, this);
+            deleteKeyEvent(event);
+        }
+        
+        return 1;
+    }
+    
+    void keyChar(const char *keychar)
+    {
+        ginput_KeyEvent *event = newKeyEvent(0,0);
+        if (strlen(keychar)<(sizeof(event->charCode)))
+        {
+            strcpy(event->charCode,keychar);
+            gevent_EnqueueEvent(gid_, callback_s, GINPUT_KEY_CHAR_EVENT, event, 0, this);
+        }
+        deleteKeyEvent(event);
+    }
+    
+    
 private:
+    ginput_KeyEvent *newKeyEvent(int keyCode, int realCode)
+    {
+        [keyPoolMutex_ lock];
+        ginput_KeyEvent *event;
+        
+        if (keyPool1_.empty())
+        {
+            event = new ginput_KeyEvent;
+        }
+        else
+        {
+            event = keyPool1_.back();
+            keyPool1_.pop_back();
+        }
+        [keyPoolMutex_ unlock];
+        
+        event->keyCode = keyCode;
+        event->realCode = realCode;
+        
+        return event;
+    }
+    
+    void deleteKeyEvent(ginput_KeyEvent *event)
+    {
+        [keyPoolMutex_ lock];
+        keyPool2_.push_back(event);
+        [keyPoolMutex_ unlock];
+    }
+    
+    int convertKeyCode(int keyCode)
+    {
+        return keyCode;
+/*        std::map<int, int>::const_iterator iter = keyMap_.find(keyCode);
+        
+        if (iter == keyMap_.end())
+            return 0;
+        
+        return iter->second;*/
+    }	
+    std::vector<ginput_KeyEvent*> keyPool1_;
+    std::vector<ginput_KeyEvent*> keyPool2_;
+    //std::map<int, int> keyMap_;
+
+private:
+#if TARGET_OS_TV == 0
     GGAccelerometer *accelerometer_;
+    CMMotionManager *motionManager_;
+#endif
 	int accelerometerStartCount_;
-	CMMotionManager *motionManager_;
 	int gyroscopeStartCount_;
 
 public:
@@ -780,6 +910,27 @@ void ginputp_touchesCancelled(NSSet *touches, NSSet *allTouches, UIView *view)
         s_manager->touchesCancelled(touches, allTouches, view);
 }
 
+g_bool ginputp_keyDown(int keyCode, int repeatCount)
+{
+    if (s_manager)
+        return s_manager->keyDown(keyCode, repeatCount);
+    return g_false;
+}
+    
+g_bool ginputp_keyUp(int keyCode, int repeatCount)
+{
+    if (s_manager)
+        return s_manager->keyUp(keyCode, repeatCount);
+     return g_false;
+}
+    
+void ginputp_keyChar(const char *keyChar)
+{
+     if (s_manager)
+     s_manager->keyChar(keyChar);
+}
+    
+
 void ginput_setMouseToTouchEnabled(int enabled)
 {
     s_manager->setMouseToTouchEnabled(enabled);
@@ -811,4 +962,4 @@ void ginput_removeCallbackWithGid(g_id gid)
 }
 
 }
-#endif
+

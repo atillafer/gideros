@@ -34,9 +34,7 @@
 
 #include <gui.h>
 #include <ginput.h>
-#if TARGET_OS_TV == 0
 #include <ginput-ios.h>
-#endif
 #include <gevent.h>
 #if TARGET_OS_TV == 0
 #include <ggeolocation.h>
@@ -100,11 +98,6 @@
     startRoutine_(arg_);
 }
 
-@end
-
-@interface LuaException : NSException
-@end
-@implementation LuaException
 @end
 
 
@@ -243,7 +236,11 @@ public:
 	void touchesMoved(NSSet *touches, NSSet *allTouches);
 	void touchesEnded(NSSet *touches, NSSet *allTouches);
 	void touchesCancelled(NSSet *touches, NSSet *allTouches);
-	
+
+    void keyDown(int keyCode, int repeat);
+    void keyUp(int keyCode, int repeat);
+    void keyChar(NSString *text);
+
 	void suspend();
 	void resume();
 	
@@ -271,6 +268,10 @@ public:
     void foreground();
     void background();
     void surfaceChanged(int width,int height);
+    
+    bool isKeyboardVisible();
+    bool setKeyboardVisibility(bool visible);
+
 
 private:
 	void loadProperties();
@@ -281,6 +282,7 @@ private:
 private:
 	UIView *view_;
 	bool player_;
+    bool keyboardVisible_;
 	LuaApplication *application_;
 	NetworkManager *networkManager_;
 
@@ -608,6 +610,7 @@ ApplicationManager::ApplicationManager(UIView *view, int width, int height, bool
 	width_ = width;
 	height_ = height;
 	player_ = player;
+    keyboardVisible_=false;
 
 	// gpath & gvfs
 	gpath_init();
@@ -635,9 +638,7 @@ ApplicationManager::ApplicationManager(UIView *view, int width, int height, bool
     gapplication_init();
 	
 	// input
-#if TARGET_OS_TV == 0
     ginput_init();
-#endif
 	
 	// geolocation
 #if TARGET_OS_TV == 0
@@ -775,9 +776,7 @@ ApplicationManager::~ApplicationManager()
 #endif
 	
 	// input
-#if TARGET_OS_TV == 0
     ginput_cleanup();
-#endif
 	
     // application
     gapplication_cleanup();
@@ -1017,7 +1016,7 @@ void ApplicationManager::luaError(const char *error)
 	}
 	else
 	{
-        @throw [[LuaException alloc] initWithName:@"Lua" reason:[NSString stringWithUTF8String:error] userInfo:nil];
+        [view_ reportLuaError:[NSString stringWithUTF8String:error]];
 		//g_exit();
 	}
 }
@@ -1079,11 +1078,9 @@ void ApplicationManager::loadProperties()
 #endif
 
 	g_setFps(properties_.fps);
-#if TARGET_OS_TV == 0
 	ginput_setMouseToTouchEnabled(properties_.mouseToTouch);
 	ginput_setTouchToMouseEnabled(properties_.touchToMouse);
 	ginput_setMouseTouchOrder(properties_.mouseTouchOrder);
-#endif
 }
 
 void ApplicationManager::loadLuaFiles()
@@ -1161,11 +1158,9 @@ void ApplicationManager::play(const std::vector<std::string>& luafiles)
 #endif
 
 	g_setFps(properties_.fps);
-#if TARGET_OS_TV == 0
 	ginput_setMouseToTouchEnabled(properties_.mouseToTouch);
 	ginput_setTouchToMouseEnabled(properties_.touchToMouse);
 	ginput_setMouseTouchOrder(properties_.mouseTouchOrder);
-#endif
 
     GStatus status;
     for (std::size_t i = 0; i < luafiles.size(); ++i)
@@ -1385,6 +1380,22 @@ void ApplicationManager::touchesCancelled(NSSet *touches, NSSet *allTouches)
 }
 #endif
 
+void ApplicationManager::keyDown(int keyCode, int repeat)
+{
+    ginputp_keyDown(keyCode,repeat);
+}
+
+void ApplicationManager::keyUp(int keyCode, int repeat)
+{
+    ginputp_keyUp(keyCode,repeat);
+}
+
+void ApplicationManager::keyChar(NSString *text)
+{
+    ginputp_keyChar([text UTF8String]);
+}
+
+
 void ApplicationManager::didReceiveMemoryWarning()
 {
     gapplication_enqueueEvent(GAPPLICATION_MEMORY_LOW_EVENT, NULL, 0);
@@ -1554,7 +1565,28 @@ void ApplicationManager::surfaceChanged(int width,int height)
     if (ShaderEngine::Engine) ShaderEngine::Engine->resizeFramebuffer(width, height);
 }
 
+
+bool ApplicationManager::isKeyboardVisible(){
+    return keyboardVisible_;
+}
+
+bool ApplicationManager::setKeyboardVisibility(bool visible)
+{
+    keyboardVisible_=visible;
+    if (visible)
+        [view_ becomeFirstResponder];
+    else
+        [view_ resignFirstResponder];
+    return true;
+}
+
 static ApplicationManager *s_manager = NULL;
+
+bool setKeyboardVisibility(bool visible){
+    if (s_manager)
+        return s_manager->setKeyboardVisibility(visible);
+    return false;
+}
 
 extern "C" {
 
@@ -1653,6 +1685,22 @@ void gdr_touchesCancelled(NSSet *touches, NSSet *allTouches)
 	s_manager->touchesCancelled(touches, allTouches);
 }
 #endif
+    
+void gdr_keyDown(int keyCode, int repeat)
+{
+    s_manager->keyDown(keyCode,repeat);
+}
+
+void gdr_keyUp(int keyCode, int repeat)
+{
+    s_manager->keyUp(keyCode,repeat);
+}
+    
+void gdr_keyChar(NSString *text)
+{
+    s_manager->keyChar(text);
+}
+
 
 void gdr_handleOpenUrl(NSURL *url)
 {
@@ -1673,5 +1721,13 @@ BOOL gdr_isRunning()
 {
     return s_manager->isRunning();
 }
+    
+BOOL gdr_keyboardVisible()
+{
+    if (s_manager)
+        return s_manager->isKeyboardVisible();
+    return FALSE;
+}
+
     
 }

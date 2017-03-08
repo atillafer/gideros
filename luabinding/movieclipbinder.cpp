@@ -12,7 +12,7 @@
 class MovieClipLua : public MovieClip
 {
 public:
-    MovieClipLua(Type type, LuaApplication *lapplication);
+    MovieClipLua(Type type, LuaApplication *lapplication, bool holdWhilePlaying);
     void destruct(lua_State *L);
  	void addFrame(int start, int end, Sprite* sprite,int spref,  const std::vector<Parameter>& parameters, GStatus* status = NULL);
 	std::vector<int> spriteRefs;
@@ -23,7 +23,7 @@ protected:
 	float getField(int frmIndex,Parameter param);
 };
 
-MovieClipLua::MovieClipLua(Type type, LuaApplication *lapplication) : MovieClip(type,lapplication->getApplication())
+MovieClipLua::MovieClipLua(Type type, LuaApplication *lapplication, bool holdWhilePlaying) : MovieClip(type,lapplication->getApplication(),holdWhilePlaying)
 {
 	lapplication_=lapplication;
 }
@@ -96,6 +96,7 @@ MovieClipBinder::MovieClipBinder(lua_State* L)
 		{"setStopAction", setStopAction},
 		{"setGotoAction", setGotoAction},
 		{"clearAction", clearAction},
+		{"getFrame", getFrame},
 		{NULL, NULL},
 	};
 
@@ -155,11 +156,13 @@ int MovieClipBinder::create(lua_State* L)
 
     int index;
     MovieClip::Type type;
+    bool holdWhilePlaying=false;
 
     if (lua_type(L, 1) == LUA_TTABLE)
     {
         index = 1;
         type = MovieClip::eFrame;
+        holdWhilePlaying=lua_toboolean(L,2);
     }
     else if (lua_type(L, 1) == LUA_TSTRING)
     {
@@ -179,6 +182,7 @@ int MovieClipBinder::create(lua_State* L)
         }
 
         index = 2;
+        holdWhilePlaying=lua_toboolean(L,3);
     }
     else
         return luaL_typerror(L, 1, "string or table");
@@ -186,7 +190,7 @@ int MovieClipBinder::create(lua_State* L)
     if (lua_objlen(L, index) == 0)
         luaL_error(L, GStatus(2102).errorString());     // Error #2102 Timeline array doesn't contain any elements.
 
-    MovieClipLua* movieclip = new MovieClipLua(type, application);	// box movieclip to unref
+    MovieClipLua* movieclip = new MovieClipLua(type, application,holdWhilePlaying);	// box movieclip to unref
 
 	AutoUnref autounref(movieclip);
 
@@ -385,4 +389,17 @@ int MovieClipBinder::clearAction(lua_State* L)
 	movieclip->clearAction(frame);
 
 	return 0;
+}
+
+int MovieClipBinder::getFrame(lua_State* L)
+{
+	StackChecker checker(L, "MovieClipBinder::getFrame", 1);
+
+	Binder binder(L);
+	MovieClip* movieclip = static_cast<MovieClip*>(binder.getInstance("MovieClip", 1));
+
+	int frame=movieclip->getFrame();
+	lua_pushinteger(L,frame);
+
+	return 1;
 }

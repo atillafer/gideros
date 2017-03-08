@@ -18,6 +18,8 @@
 
 #include "addnewfiledialog.h"
 #include "projectpropertiesdialog.h"
+#include "qtutils.h"
+
 
 LibraryTreeWidget::LibraryTreeWidget(QWidget *parent)
 	: QTreeWidget(parent)
@@ -73,6 +75,18 @@ LibraryTreeWidget::LibraryTreeWidget(QWidget *parent)
     excludeFromExecutionAction_->setCheckable(true);
     connect(excludeFromExecutionAction_, SIGNAL(triggered(bool)), this, SLOT(excludeFromExecution(bool)));
 
+    excludeFromEncryptionAction_ = new QAction(tr("Never encrypt"), this);
+    excludeFromEncryptionAction_->setCheckable(true);
+    connect(excludeFromEncryptionAction_, SIGNAL(triggered(bool)), this, SLOT(excludeFromEncryption(bool)));
+
+#if defined(Q_OS_WIN)
+    showInFindeAction_ = new QAction(tr("Show in Explorer"), this);
+#else
+    showInFindeAction_ = new QAction(tr("Show in Finder"), this);
+#endif
+
+    connect(showInFindeAction_, SIGNAL(triggered()), this, SLOT(showInFinder()));
+
     setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(this, SIGNAL(customContextMenuRequested  (const QPoint&)),
 			this, SLOT  (onCustomContextMenuRequested(const QPoint&)));
@@ -123,6 +137,12 @@ void LibraryTreeWidget::onCustomContextMenuRequested(const QPoint& pos)
 		}
 	}
 
+    //add "show in finder" in the first position just as Xcode did
+    if (size == 1 && (file || project))
+    {
+        menu.addAction(showInFindeAction_);
+    }
+
 	if (size == 1 && (folder || project))
 	{
 		menu.addAction(addNewFileAction_);
@@ -163,6 +183,10 @@ void LibraryTreeWidget::onCustomContextMenuRequested(const QPoint& pos)
 			automaticDownsizingAction_->setChecked(downsizing);
 			menu.addAction(automaticDownsizingAction_);
 		}
+
+        bool excludeFromEncryption = data.contains("excludeFromEncryption") && data["excludeFromEncryption"].toBool();
+        excludeFromEncryptionAction_->setChecked(excludeFromEncryption);
+        menu.addAction(excludeFromEncryptionAction_);
 	}
 
 	if (size == 1 && project)
@@ -215,6 +239,31 @@ void LibraryTreeWidget::newFont()
 }
 */
 
+
+void LibraryTreeWidget::showInFinder()
+{
+    if (selectedItems().empty() == true)
+        return;
+
+    QTreeWidgetItem* item = selectedItems()[0];
+
+
+    QString path;
+
+    if (item->parent() == NULL){
+        path = projectFileName_;
+    }else
+    {
+        QString fileName = item->data(0, Qt::UserRole).toMap()["filename"].toString();
+
+        QDir dir = QFileInfo(projectFileName_).dir();
+
+        path = QDir::cleanPath(dir.absoluteFilePath(fileName));
+    }
+
+    doShowInFinder(path);
+}
+
 void LibraryTreeWidget::remove()
 {
 	QList<QTreeWidgetItem*> selectedItems = this->selectedItems();
@@ -256,6 +305,7 @@ void LibraryTreeWidget::remove()
 
 	checkModification();
 }
+
 
 void LibraryTreeWidget::rename()
 {
@@ -354,6 +404,8 @@ QDomDocument LibraryTreeWidget::toXml() const
                     childElement.setAttribute("downsizing", 1);
                 if (data.contains("excludeFromExecution") && data["excludeFromExecution"].toBool())
                     childElement.setAttribute("excludeFromExecution", 1);
+                if (data.contains("excludeFromEncryption") && data["excludeFromEncryption"].toBool())
+                    childElement.setAttribute("excludeFromEncryption", 1);
             }
 			else
 				childElement.setAttribute("name", childItem->text(0));
@@ -454,7 +506,8 @@ void LibraryTreeWidget::loadXml(const QString& projectFileName, const QDomDocume
 				QString file = e.hasAttribute("source") ? e.attribute("source") : e.attribute("file");
                 bool downsizing = e.hasAttribute("downsizing") && e.attribute("downsizing").toInt();
                 bool excludeFromExecution = e.hasAttribute("excludeFromExecution") && e.attribute("excludeFromExecution").toInt();
-                item = createFileItem(file, downsizing, excludeFromExecution);
+                bool excludeFromEncryption = e.hasAttribute("excludeFromEncryption") && e.attribute("excludeFromEncryption").toInt();
+                item = createFileItem(file, downsizing, excludeFromExecution, excludeFromEncryption);
 			}
 			else if (type == "folder")
 			{
@@ -494,7 +547,7 @@ void LibraryTreeWidget::loadXml(const QString& projectFileName, const QDomDocume
 		emit modificationChanged(isModifed_);
 }
 
-QTreeWidgetItem* LibraryTreeWidget::createFileItem(const QString& file, bool downsizing, bool excludeFromExecution)
+QTreeWidgetItem* LibraryTreeWidget::createFileItem(const QString& file, bool downsizing, bool excludeFromExecution, bool excludeFromEncryption)
 {
 	QString name = QFileInfo(file).fileName();
 	QString ext = QFileInfo(file).suffix().toLower();
@@ -527,6 +580,9 @@ QTreeWidgetItem* LibraryTreeWidget::createFileItem(const QString& file, bool dow
 
     if (excludeFromExecution)
         data["excludeFromExecution"] = true;
+
+    if (excludeFromEncryption)
+        data["excludeFromEncryption"] = true;
 
 	item->setData(0, Qt::UserRole, data);
 
@@ -836,4 +892,19 @@ void LibraryTreeWidget::excludeFromExecution(bool checked)
     item->setIcon(0, IconLibrary::instance().icon(0, checked ? "lua with stop" : "lua"));
 
     dependencyGraph_.setExcludeFromExecution(data["filename"].toString(), checked);
+}
+
+void LibraryTreeWidget::excludeFromEncryption(bool checked)
+{
+    if (selectedItems().empty() == true)
+        return;
+
+    QTreeWidgetItem* item = selectedItems()[0];
+
+    QMap<QString, QVariant> data = item->data(0, Qt::UserRole).toMap();
+    data["excludeFromEncryption"] = checked;
+    item->setData(0, Qt::UserRole, data);
+
+    //item->setIcon(0, IconLibrary::instance().icon(0, checked ? "lua with stop" : "lua"));
+    //XXX would be good to overlay a little icon symbol saying that the file won't be encrypted
 }

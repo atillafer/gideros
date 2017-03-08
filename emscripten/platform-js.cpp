@@ -15,6 +15,10 @@ void setKeepAwake(bool awake)
 {
 }
 
+bool setKeyboardVisibility(bool visible){
+	return false;
+}
+
 void vibrate(int ms)
 {
 	EM_ASM_({

@@ -16,6 +16,12 @@
 - (void)deleteFramebuffer;
 @end
 
+@interface LuaException : NSException
+@end
+@implementation LuaException
+@end
+
+
 @implementation EAGLView
 
 @dynamic context;
@@ -39,6 +45,7 @@
                                         kEAGLColorFormatRGBA8, kEAGLDrawablePropertyColorFormat,
                                         nil];
 		retinaDisplay = NO;
+        _hasText = NO;
     }
     
     return self;
@@ -50,6 +57,11 @@
     [context release];
     
     [super dealloc];
+}
+
+- (BOOL)canBecomeFirstResponder
+{
+    return gdr_keyboardVisible();
 }
 
 - (EAGLContext *)context
@@ -193,6 +205,22 @@
 - (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event
 {
     gdr_touchesCancelled(touches, [event allTouches]);
+}
+
+- (void)insertText:(NSString *)text;
+{
+    gdr_keyChar(text);
+}
+
+- (void)deleteBackward;
+{
+    gdr_keyDown(8,0); //Simulate a backspace key press and release
+    gdr_keyUp(8,0);
+}
+
+- (void) reportLuaError:(NSString *)error
+{
+ @throw [[LuaException alloc] initWithName:@"Lua" reason:error userInfo:nil];
 }
 
 @end

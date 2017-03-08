@@ -36,9 +36,11 @@ Sprite::~Sprite() {
 	delete colorTransform_;
 //	delete graphics_;
 
-	for (std::size_t i = 0; i < children_.size(); ++i)
+	for (std::size_t i = 0; i < children_.size(); ++i){
+		children_[i]->parent_ = 0;
 		children_[i]->unref();
-
+	}
+	
 	allSprites_.erase(this);
 	allSpritesWithListeners_.erase(this);
 
@@ -1151,6 +1153,12 @@ void Sprite::set(int param, float value, GStatus* status) {
 	case eStringIdAlphaMultiplier:
 		setAlphaMultiplier(value);
 		break;
+    case eStringIdSkewX:
+        setSkewX(value);
+        break;
+    case eStringIdSkewY:
+        setSkewY(value);
+        break;
 	default:
 		if (status)
 			*status = GStatus(2008, "param"); // Error #2008: Parameter '%s' must be one of the accepted values.
@@ -1194,6 +1202,10 @@ float Sprite::get(int param, GStatus* status) {
 		return getBlueMultiplier();
 	case eStringIdAlphaMultiplier:
 		return getAlphaMultiplier();
+    case eStringIdSkewX:
+        return skewX();
+    case eStringIdSkewY:
+        return skewY();
 	}
 
 	if (status)

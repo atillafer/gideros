@@ -81,7 +81,7 @@ public:
         eTime
     };
 
-    MovieClip(Type type, Application *application);
+    MovieClip(Type type, Application *application, bool holdWhilePlaying);
 	virtual ~MovieClip();
 
 	// start >= 1 && end >= 1 && start <= end
@@ -94,9 +94,10 @@ public:
 	void finalize();
 	
 	void play();
-	void stop();
+	bool stop(bool unrefNow=true);
 	void gotoAndPlay(int frame);
 	void gotoAndStop(int frame);
+	int getFrame();
 
 protected:
 	struct Frame
@@ -115,7 +116,7 @@ private:
 	virtual void extraBounds(float* minx, float* miny, float* maxx, float* maxy) const;
 
 private:
-    void oneFrame();
+    bool oneFrame();
     void nextFrame(EnterFrameEvent* event);
     void gotoFrame(int frame);
 	void interpolateParameters();
@@ -127,6 +128,7 @@ private:
 	int maxframe_;
 	bool playing_;
 	bool passoneframe_;
+	bool holdWhilePlaying_;
 
 	std::map<int, std::vector<Frame*> > allFrames_;			// indexed with start
 	std::map<int, std::vector<Frame*> > activeFrames_;		// indexed with end

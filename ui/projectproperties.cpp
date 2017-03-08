@@ -24,6 +24,7 @@ void ProjectProperties::toXml(QDomDocument doc,QDomElement properties) const
 	properties.setAttribute("fps", this->fps);
     properties.setAttribute("version", this->version);
     properties.setAttribute("version_code", this->version_code);
+    properties.setAttribute("build_number", this->build_number);
 
 	// iOS options
     properties.setAttribute("retinaDisplay", this->retinaDisplay);
@@ -59,6 +60,9 @@ void ProjectProperties::toXml(QDomDocument doc,QDomElement properties) const
     properties.setAttribute("backgroundColor", this->backgroundColor);
     properties.setAttribute("splash_h_image", this->splash_h_image);
     properties.setAttribute("splash_v_image", this->splash_v_image);
+    properties.setAttribute("app_name", this->app_name);
+
+    properties.setAttribute("splashScaleMode", this->splashScaleMode);
 
     //Plugins
 	QDomElement plugins = doc.createElement("plugins");
@@ -134,6 +138,8 @@ void ProjectProperties::loadXml(QDomElement properties)
             this->version = properties.attribute("version");
         if (!properties.attribute("version_code").isEmpty())
             this->version_code = properties.attribute("version_code").toInt();
+        if (!properties.attribute("build_number").isEmpty())
+            this->build_number = properties.attribute("build_number").toInt();
 
         // input options
         if (!properties.attribute("mouseToTouch").isEmpty())
@@ -152,6 +158,8 @@ void ProjectProperties::loadXml(QDomElement properties)
 			this->exportMode = properties.attribute("exportMode").toInt();
 		if (!properties.attribute("iosDevice").isEmpty())
 			this->iosDevice = properties.attribute("iosDevice").toInt();
+        if (!properties.attribute("app_name").isEmpty())
+            this->app_name = properties.attribute("app_name");
         if (!properties.attribute("ios_bundle").isEmpty())
             this->ios_bundle = properties.attribute("ios_bundle");
 		if (!properties.attribute("packageName").isEmpty())
@@ -192,6 +200,8 @@ void ProjectProperties::loadXml(QDomElement properties)
             this->disableSplash = properties.attribute("disableSplash").toInt() != 0;
         if(!properties.attribute("backgroundColor").isEmpty())
             this->backgroundColor = properties.attribute("backgroundColor");
+        if (!properties.attribute("splashScaleMode").isEmpty())
+            this->splashScaleMode = properties.attribute("splashScaleMode").toInt();
 
         //Plugins
         this->plugins.clear();

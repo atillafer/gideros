@@ -187,6 +187,7 @@ public:
 	
 	bool keyDown(int keyCode, int repeatCount);
 	bool keyUp(int keyCode, int repeatCount);
+	void keyChar(const char *keyChar);
 	
 	void pause();
 	void resume();
@@ -804,6 +805,7 @@ void ApplicationManager::drawFrame()
 			*/
 
 			applicationStarted_ = true;
+			running_ = true;
 		}
 		
 		if (splashScreen_ && splashScreen_->isFinished())
@@ -814,6 +816,7 @@ void ApplicationManager::drawFrame()
 
 			loadLuaFiles();
 			skipFirstEnterFrame_ = true;
+			running_ = true;
 		}
 	}	
 
@@ -1205,6 +1208,11 @@ bool ApplicationManager::keyUp(int keyCode, int repeatCount)
 	return true;
 }
 
+void ApplicationManager::keyChar(const char *str)
+{
+	ginputp_keyChar(str);
+}
+
 extern void gaudio_android_suspend(bool suspend);
 
 void ApplicationManager::pause()
@@ -1213,10 +1221,13 @@ void ApplicationManager::pause()
 
     gapplication_enqueueEvent(GAPPLICATION_PAUSE_EVENT, NULL, 0);
 
-	GStatus status;
-	application_->tick(&status);
-	if (status.error())
-		luaError(status.errorString());
+	if (running_ == true)
+	{
+		GStatus status;
+		application_->tick(&status);
+		if (status.error())
+			luaError(status.errorString());
+	}
 	gaudio_android_suspend(true);
  }
 
@@ -1225,40 +1236,52 @@ void ApplicationManager::resume()
 	gaudio_android_suspend(false);
     gapplication_enqueueEvent(GAPPLICATION_RESUME_EVENT, NULL, 0);
 
-	GStatus status;
-	application_->tick(&status);
-	if (status.error())
-		luaError(status.errorString());
+	if (running_ == true)
+	{
+		GStatus status;
+		application_->tick(&status);
+		if (status.error())
+			luaError(status.errorString());
+	}
  }
 
 void ApplicationManager::lowMemory()
 {
     gapplication_enqueueEvent(GAPPLICATION_MEMORY_LOW_EVENT, NULL, 0);
 
-	GStatus status;
-	application_->tick(&status);
-	if (status.error())
-		luaError(status.errorString());
+	if (running_ == true)
+	{
+		GStatus status;
+		application_->tick(&status);
+		if (status.error())
+			luaError(status.errorString());
+	}
 }
 
 void ApplicationManager::background()
 {
     gapplication_enqueueEvent(GAPPLICATION_BACKGROUND_EVENT, NULL, 0);
 
-	GStatus status;
-	application_->tick(&status);
-	if (status.error())
-		luaError(status.errorString());
+	if (running_ == true)
+	{
+		GStatus status;
+		application_->tick(&status);
+		if (status.error())
+			luaError(status.errorString());
+	}
  }
 
 void ApplicationManager::foreground()
 {
     gapplication_enqueueEvent(GAPPLICATION_FOREGROUND_EVENT, NULL, 0);
 
-	GStatus status;
-	application_->tick(&status);
-	if (status.error())
-		luaError(status.errorString());
+	if (running_ == true)
+	{
+		GStatus status;
+		application_->tick(&status);
+		if (status.error())
+			luaError(status.errorString());
+	}
  }
 
 static ApplicationManager *s_applicationManager = NULL;
@@ -1403,6 +1426,13 @@ jboolean Java_com_giderosmobile_android_player_GiderosApplication_nativeKeyDown(
 jboolean Java_com_giderosmobile_android_player_GiderosApplication_nativeKeyUp(JNIEnv* env, jclass cls, jint keyCode, jint repeatCount)
 {
 	return s_applicationManager->keyUp(keyCode, repeatCount);
+}
+
+void Java_com_giderosmobile_android_player_GiderosApplication_nativeKeyChar(JNIEnv* env, jclass cls, jstring keyChar)
+{
+	const char* sBytes = env->GetStringUTFChars(keyChar, NULL);
+	s_applicationManager->keyChar(sBytes);
+	env->ReleaseStringUTFChars(keyChar, sBytes);
 }
 
 jboolean Java_com_giderosmobile_android_player_GiderosApplication_isRunning(JNIEnv* env, jclass cls)

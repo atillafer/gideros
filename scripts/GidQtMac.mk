@@ -1,10 +1,10 @@
 DEPLOYQT=$(QT)/bin/macdeployqt
 
-buildqtapp: buildqtlibs buildplugins buildqt
+buildqtapp: buildqtlibs buildqtplugins buildqt
 
-qtapp.install: qtlibs.install plugins.install qt.install
+qtapp.install: qtlibs.install qtplugins.install qt.install
 
-qtapp.clean: qtlibs.clean plugins.clean qt.clean
+qtapp.clean: qtlibs.clean qtplugins.clean qt.clean
 
 
 vpath %.dylib libgideros:libgvfs:libgid:lua
@@ -13,7 +13,8 @@ $(SDK)/lib/desktop/%: %
 	cp $^ $(SDK)/lib/desktop
 	
 
-SDK_LIBS_QT=libgideros.1.dylib liblua.1.dylib libgid.1.dylib libgvfs.1.dylib
+SDK_LIBS_QTLIST=libgideros liblua libgid libgvfs
+SDK_LIBS_QT=$(addsuffix .1.dylib,$(SDK_LIBS_QTLIST)) $(addsuffix .dylib,$(SDK_LIBS_QTLIST))
 
 sdk.qtlibs.dir:
 	mkdir -p $(SDK)/lib/desktop	
@@ -26,14 +27,14 @@ buildqtlibs: $(addsuffix .qmake.rel,libpystring libgvfs) libgid.qmake5.rel $(add
 qtlibs.install: buildqtlibs
 	mkdir -p $(RELEASE)
 
-%.plugin:
+%.qtplugin:
 	cd $(ROOT)/plugins/$*/source; if [ -d "Desktop" ]; then cd Desktop; fi; $(QMAKE) *.pro
 	cd $(ROOT)/plugins/$*/source; if [ -d "Desktop" ]; then cd Desktop; fi; $(MAKE) 
 
-%.plugin.clean:
+%.qtplugin.clean:
 	cd $(ROOT)/plugins/$*/source; if [ -d "Desktop" ]; then cd Desktop; fi; $(MAKE) clean
 
-%.plugin.install:
+%.qtplugin.install:
 	mkdir -p $(RELEASE)/Plugins
 	mkdir -p $(RELEASE)/Templates/Qt/MacOSXDesktopTemplate/MacOSXDesktopTemplate.app/Contents/Plugins
 	mkdir -p $(RELEASE)/All\ Plugins/$*/bin/MacOSX
@@ -48,14 +49,18 @@ buildqt: $(addsuffix .qmake.rel,texturepacker fontcreator ui) player.qmake5.rel 
 
 qt.clean: $(addsuffix .qmake.clean,texturepacker fontcreator ui player gdrdeamon gdrbridge gdrexport desktop)
 
-qt.install: buildqt qt.player
+QSCINTILLA_LIBVER=$(word 2,$(subst ., ,$(filter libqscintilla%,$(subst /, ,$(shell otool -L $(ROOT)/ui/Gideros\ Studio.app/Contents/MacOS/Gideros\ Studio | grep libqscintilla)))))
+qt.install: buildqt qt.player tools
 	#STUDIO
 	rm -rf $(RELEASE)/Gideros\ Studio.app
 	cp -R $(ROOT)/ui/Gideros\ Studio.app $(RELEASE)
 	$(DEPLOYQT) $(RELEASE)/Gideros\ Studio.app
-	cp $(QT)/lib/libqscintilla2.11.dylib $(RELEASE)/Gideros\ Studio.app/Contents/Frameworks/ 
+	cp $(QT)/lib/libqscintilla2.$(QSCINTILLA_LIBVER).dylib $(RELEASE)/Gideros\ Studio.app/Contents/Frameworks/ 
+	install_name_tool -change libqscintilla2.$(QSCINTILLA_LIBVER).dylib @rpath/libqscintilla2.$(QSCINTILLA_LIBVER).dylib  $(RELEASE)/Gideros\ Studio.app/Contents/MacOS/Gideros\ Studio
 	cp -R $(ROOT)/ui/Resources $(RELEASE)/Gideros\ Studio.app/Contents/
-	cp -R $(ROOT)/ui/Tools $(RELEASE)/Gideros\ Studio.app/Contents/Tools	
+	cp -R $(ROOT)/ui/Tools $(RELEASE)/Gideros\ Studio.app/Contents/Tools
+	cp $(ROOT)/lua/src/lua $(RELEASE)/Gideros\ Studio.app/Contents/Tools
+	cp $(ROOT)/lua/src/luac $(RELEASE)/Gideros\ Studio.app/Contents/Tools
 	for t in gdrdeamon gdrbridge gdrexport; do \
 	install_name_tool -add_rpath @executable_path/../Frameworks $(ROOT)/$$t/$$t;\
 	cp $(ROOT)/$$t/$$t $(RELEASE)/Gideros\ Studio.app/Contents/Tools; done 
@@ -70,6 +75,11 @@ qt.install: buildqt qt.player
 	install_name_tool -change libgid.1.dylib @rpath/libgid.1.dylib  $(RELEASE)/Gideros\ Player.app/Contents/Frameworks/libgideros.1.dylib 
 	install_name_tool -change liblua.1.dylib @rpath/liblua.1.dylib  $(RELEASE)/Gideros\ Player.app/Contents/Frameworks/libgideros.1.dylib 
 	install_name_tool -change libpystring.1.dylib @rpath/libpystring.1.dylib  $(RELEASE)/Gideros\ Player.app/Contents/Frameworks/libgideros.1.dylib 
+	install_name_tool -change libgvfs.1.dylib @rpath/libgvfs.1.dylib  $(RELEASE)/Gideros\ Player.app/Contents/MacOS/Gideros\ Player 
+	install_name_tool -change libgideros.1.dylib @rpath/libgideros.1.dylib  $(RELEASE)/Gideros\ Player.app/Contents/MacOS/Gideros\ Player 
+	install_name_tool -change libgid.1.dylib @rpath/libgid.1.dylib  $(RELEASE)/Gideros\ Player.app/Contents/MacOS/Gideros\ Player 
+	install_name_tool -change liblua.1.dylib @rpath/liblua.1.dylib  $(RELEASE)/Gideros\ Player.app/Contents/MacOS/Gideros\ Player 
+	install_name_tool -change libpystring.1.dylib @rpath/libpystring.1.dylib  $(RELEASE)/Gideros\ Player.app/Contents/MacOS/Gideros\ Player 
 	#TEXTUREPACKER
 	rm -rf $(RELEASE)/Gideros\ Texture\ Packer.app
 	cp -R $(ROOT)/texturepacker/Gideros\ Texture\ Packer.app $(RELEASE)
@@ -110,12 +120,17 @@ qt.player:
 	install_name_tool -change libgid.1.dylib @rpath/libgid.1.dylib  $(RELEASE)/Templates/Qt/MacOSXDesktopTemplate/MacOSXDesktopTemplate.app/Contents/Frameworks/libgideros.1.dylib 
 	install_name_tool -change liblua.1.dylib @rpath/liblua.1.dylib  $(RELEASE)/Templates/Qt/MacOSXDesktopTemplate/MacOSXDesktopTemplate.app/Contents/Frameworks/libgideros.1.dylib 
 	install_name_tool -change libpystring.1.dylib @rpath/libpystring.1.dylib  $(RELEASE)/Templates/Qt/MacOSXDesktopTemplate/MacOSXDesktopTemplate.app/Contents/Frameworks/libgideros.1.dylib 
+	install_name_tool -change libgideros.1.dylib @rpath/libgideros.1.dylib  $(RELEASE)/Templates/Qt/MacOSXDesktopTemplate/MacOSXDesktopTemplate.app/Contents/MacOS/MacOSXDesktopTemplate 
+	install_name_tool -change libgvfs.1.dylib @rpath/libgvfs.1.dylib  $(RELEASE)/Templates/Qt/MacOSXDesktopTemplate/MacOSXDesktopTemplate.app/Contents/MacOS/MacOSXDesktopTemplate 
+	install_name_tool -change libgid.1.dylib @rpath/libgid.1.dylib  $(RELEASE)/Templates/Qt/MacOSXDesktopTemplate/MacOSXDesktopTemplate.app/Contents/MacOS/MacOSXDesktopTemplate 
+	install_name_tool -change liblua.1.dylib @rpath/liblua.1.dylib  $(RELEASE)/Templates/Qt/MacOSXDesktopTemplate/MacOSXDesktopTemplate.app/Contents/MacOS/MacOSXDesktopTemplate 
+	install_name_tool -change libpystring.1.dylib @rpath/libpystring.1.dylib  $(RELEASE)/Templates/Qt/MacOSXDesktopTemplate/MacOSXDesktopTemplate.app/Contents/MacOS/MacOSXDesktopTemplate 
 	
-buildplugins: $(addsuffix .plugin,$(PLUGINS_WIN))
+buildqtplugins: $(addsuffix .qtplugin,$(PLUGINS_WIN))
 
-plugins.clean: $(addsuffix .plugin.clean,$(PLUGINS_WIN))
+qtplugins.clean: $(addsuffix .qtplugin.clean,$(PLUGINS_WIN))
 
-plugins.install: buildplugins $(addsuffix .plugin.install,$(PLUGINS_WIN))
+qtplugins.install: buildqtplugins $(addsuffix .qtplugin.install,$(PLUGINS_WIN))
 
 %.qmake.clean:
 	cd $(ROOT)/$*; $(MAKE) clean
@@ -129,18 +144,11 @@ plugins.install: buildplugins $(addsuffix .plugin.install,$(PLUGINS_WIN))
 	cd $(ROOT)/$*; $(MAKE) 
 
 tools:
-	cd $(ROOT)/lua514u/src; gcc -o luac $(addsuffix .c,print lapi lauxlib lcode ldebug ldo ldump\
+	cd $(ROOT)/lua/src; gcc -I. -DDESKTOP_TOOLS -o luac $(addsuffix .c,print lapi lauxlib lcode ldebug ldo ldump\
 			 lfunc llex lmem lobject lopcodes lparser lstate lstring ltable ltm lundump lvm lzio luac lgc)
-	#cd $(ROOT)/lua514u/src; gcc -shared -o lua51.dll -Wl,--out-implib,lua51.a $(addsuffix .c,lapi lauxlib lcode ldebug ldo ldump\
-			 lfunc llex lmem lobject lopcodes lparser lstate lstring ltable ltm lundump lvm lzio lgc\
-			 linit lbaselib ldblib liolib lmathlib loslib ltablib lstrlib loadlib)
-	#cd $(ROOT)/lua514u/src; gcc -o lua lua.c lua51.a
-	cd $(ROOT)/lua514u/src; gcc -o lua $(addsuffix .c,lapi lauxlib lcode ldebug ldo ldump\
+	cd $(ROOT)/lua/src; gcc -I. -DDESKTOP_TOOLS -o lua $(addsuffix .c,lapi lauxlib lcode ldebug ldo ldump\
 			 lfunc llex lmem lobject lopcodes lparser lstate lstring ltable ltm lundump lvm lzio lua lgc\
-			 linit lbaselib ldblib liolib lmathlib loslib ltablib lstrlib loadlib)
-
-doc:
-	-wget --recursive --no-clobber --page-requisites --html-extension --convert-links --restrict-file-names=windows --domains docs.giderosmobile.com --no-parent http://docs.giderosmobile.com/
+			 linit lbaselib ldblib liolib lmathlib loslib ltablib lstrlib loadlib lutf8lib lint64)
 
 bundle:
 	rm -rf $(RELEASE).Tmp
@@ -152,8 +160,20 @@ bundle:
 	mv $(RELEASE).Tmp/* $(RELEASE)
 	rm -rf $(RELEASE).Tmp
 	cd $(RELEASE).Final; if [ -f ../$(notdir $(RELEASE))/BuildWin.zip ]; then unzip -o ../$(notdir $(RELEASE))/BuildWin.zip; fi
+	#Use our local version of that file due to line endings change
+	cp $(ROOT)/ui/Templates/AndroidStudio/Android\ Template/gradlew $(RELEASE).Final/Templates/AndroidStudio/Android\ Template
 	cd plugins; git archive master | tar -x -C ../$(RELEASE).Final/All\ Plugins
-	rm -rf $(RELEASE).Final/Documentation
-	cp -R docs.giderosmobile.com $(RELEASE).Final/Documentation
-	mv $(RELEASE).Final/Templates $(RELEASE).Final/All\ Plugins $(RELEASE).Final/Gideros\ Studio.app/Contents
-	-wget "http://docs.giderosmobile.com/reference/autocomplete.php" -O $(RELEASE).Final/Gideros\ Studio.app/Contents/Resources/gideros_annot.api
+	mv $(RELEASE).Final/Templates $(RELEASE).Final/Gideros\ Studio.app/Contents
+	cp -r $(RELEASE).Final/Resources $(RELEASE).Final/Gideros\ Studio.app/Contents
+
+bundle.mac:
+	cp -r $(RELEASE)/Templates $(RELEASE)/Gideros\ Studio.app/Contents/
+	cd plugins; git archive master | tar -x -C ../$(RELEASE)/All\ Plugins
+
+bundle.installer: bundle
+	rm -rf $(ROOT)/ROOTMAC
+	mkdir  -p $(ROOT)/ROOTMAC/Applications
+	mv $(RELEASE).Final $(ROOT)/ROOTMAC/Applications/Gideros\ Studio
+	rm -f $(ROOT)/Gideros.pkg
+	pkgbuild --root $(ROOT)/ROOTMAC --identifier com.giderosmobile.gideros --component-plist $(ROOT)/Release/pkg.plist $(ROOT)/Gideros.pkg
+	rm -rf $(ROOT)/ROOTMAC

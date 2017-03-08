@@ -9,9 +9,9 @@ WINRT_PROJECT=$(1)/$(2)/$(2).$(3)/$(2).$(3).vcxproj
 #$(call WINRT_MANIFEST basepath name target)
 WINRT_MANIFEST=$(1)/$(2)/$(2).$(3)/$(2).$(3).Package.appxmanifest
 #$(call WINRT_BUILD_WIN basepath name)
-WINRT_BUILD_WIN=$(MSBUILD) $(call WINRT_PROJECT,$(1),$(2),Windows) //p:Configuration=Release //p:Platform=Win32
+WINRT_BUILD_WIN=$(MSBUILD) $(call WINRT_PROJECT,$(1),$(2),Windows) //p:Configuration=Release //p:Platform=Win32 //v:m
 #$(call WINRT_BUILD_WP basepath name)
-WINRT_BUILD_WP=$(MSBUILD) $(call WINRT_PROJECT,$(1),$(2),WindowsPhone) //p:Configuration=Release //p:Platform=ARM 
+WINRT_BUILD_WP=$(MSBUILD) $(call WINRT_PROJECT,$(1),$(2),WindowsPhone) //p:Configuration=Release //p:Platform=ARM //v:m
 
 
 WINRT_APPX_GIDVERSION_LIST:=$(subst ., ,$(GIDEROS_VERSION)) 0 0 0 0
@@ -39,8 +39,9 @@ winrt.libs: winrt.lua winrt.gvfs
 winrt.plugins:
 	$(call WINRT_BUILD_WIN,plugins/luasocket/source/winrt/luasocket,luasocket)
 	$(call WINRT_BUILD_WP,plugins/luasocket/source/winrt/luasocket,luasocket)
-	cp -R Release/All\ Plugins $(RELEASE)
-	rm -rf $(RELEASE)/All\ Plugins/*/bin/WinRT/Release
+	mkdir -p $(RELEASE)/All\ Plugins/luasocket/bin/WinRT
+	cp Release/All\ Plugins/luasocket/bin/WinRT/Release/ARM/*.lib $(RELEASE)/All\ Plugins/luasocket/bin/WinRT/
+	cp Release/All\ Plugins/luasocket/bin/WinRT/Release/Win32/*.lib $(RELEASE)/All\ Plugins/luasocket/bin/WinRT/
 	
 winrt.core: winrt.libs winrt.shaders
 	$(call WINRT_BUILD_WIN,winrt,gideros)
@@ -84,12 +85,12 @@ winrt.player: winrt.template
 	rm -rf /c/winrt_player
 	cp winrt_example/giderosgame/giderosgame.WindowsPhone/Package.appxmanifest winrt_example/giderosgame/giderosgame.WindowsPhone/Package.appxmanifest.bak
 	sed -e 's/Version="[^"]*"/Version="$(WINRT_APPX_GIDVERSION)"/'	winrt_example/giderosgame/giderosgame.WindowsPhone/Package.appxmanifest.bak >winrt_example/giderosgame/giderosgame.WindowsPhone/Package.appxmanifest
-	$(MSBUILD) winrt_example/giderosgame/giderosgame.WindowsPhone/giderosgame.WindowsPhone.vcxproj //t:Publish //p:Configuration=Release //p:Platform=ARM //p:AppxBundle=Always
+	$(MSBUILD) winrt_example/giderosgame/giderosgame.WindowsPhone/giderosgame.WindowsPhone.vcxproj //t:Publish //p:Configuration=Release //p:Platform=ARM //p:AppxBundle=Always //v:m
 	cp winrt_example/giderosgame/giderosgame.WindowsPhone/Package.appxmanifest.bak winrt_example/giderosgame/giderosgame.WindowsPhone/Package.appxmanifest
 	rm winrt_example/giderosgame/giderosgame.WindowsPhone/Package.appxmanifest.bak
 	cp winrt_example/giderosgame/giderosgame.Windows/Package.appxmanifest winrt_example/giderosgame/giderosgame.Windows/Package.appxmanifest.bak
 	sed -e 's/Version="[^"]*"/Version="$(WINRT_APPX_GIDVERSION)"/'	winrt_example/giderosgame/giderosgame.Windows/Package.appxmanifest.bak >winrt_example/giderosgame/giderosgame.Windows/Package.appxmanifest
-	$(MSBUILD) winrt_example/giderosgame/giderosgame.Windows/giderosgame.Windows.vcxproj //t:Publish //p:Configuration=Release //p:Platform=Win32 //p:AppxBundle=Always
+	$(MSBUILD) winrt_example/giderosgame/giderosgame.Windows/giderosgame.Windows.vcxproj //t:Publish //p:Configuration=Release //p:Platform=Win32 //p:AppxBundle=Always //V:m
 	cp winrt_example/giderosgame/giderosgame.Windows/Package.appxmanifest.bak winrt_example/giderosgame/giderosgame.Windows/Package.appxmanifest
 	rm winrt_example/giderosgame/giderosgame.Windows/Package.appxmanifest.bak
 	mkdir -p $(RELEASE)/Players

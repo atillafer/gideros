@@ -60,8 +60,10 @@ ProjectPropertiesDialog::ProjectPropertiesDialog(QString projectFileName,Project
     ui->touchToMouse->setChecked(properties_->touchToMouse);
     ui->mouseTouchOrder->setCurrentIndex(properties_->mouseTouchOrder);
 
+    ui->app_name->setText(properties_->app_name);
     ui->version->setText(properties_->version);
     ui->version_code->setText(QString::number(properties_->version_code));
+    ui->build_number->setText(QString::number(properties_->build_number));
     ui->disableSplash->setChecked(properties_->disableSplash);
     this->backgroundColor = properties_->backgroundColor;
     QPalette p;
@@ -69,6 +71,8 @@ ProjectPropertiesDialog::ProjectPropertiesDialog(QString projectFileName,Project
     ui->backgroundColor->setPalette(p);
     ui->backgroundColor->setAutoFillBackground(true);
     ui->backgroundColor->setFlat(true);
+
+    ui->splashScaleMode->setCurrentIndex(properties_->splashScaleMode);
 
     connect(ui->add, SIGNAL(clicked()), this, SLOT(add()));
 	connect(ui->remove, SIGNAL(clicked()), this, SLOT(remove()));
@@ -141,8 +145,10 @@ void ProjectPropertiesDialog::onAccepted()
     properties_->touchToMouse = ui->touchToMouse->isChecked();
     properties_->mouseTouchOrder = ui->mouseTouchOrder->currentIndex();
 
+    properties_->app_name = ui->app_name->text();
     properties_->version = ui->version->text();
     properties_->version_code = ui->version_code->text().toInt();
+    properties_->build_number = ui->build_number->text().toInt();
 
 	QDir path(QFileInfo(projectFileName_).path());
     if(!this->app_icon.isNull())
@@ -156,6 +162,8 @@ void ProjectPropertiesDialog::onAccepted()
 
     properties_->disableSplash = ui->disableSplash->isChecked();
     properties_->backgroundColor = this->backgroundColor.name();
+
+    properties_->splashScaleMode = ui->splashScaleMode->currentIndex();
 
 }
 

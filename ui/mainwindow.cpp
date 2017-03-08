@@ -873,7 +873,7 @@ void MainWindow::timerEvent(QTimerEvent*)
 				}
 
 				QString fileName = QDir::cleanPath(path.absoluteFilePath(s2));
-                if (client_->sendFile(s1, fileName))
+                if (client_->sendFile(s1, fileName) == 0)
 				{
 					outputWidget_->append(s1 + " cannot be opened.\n");
 				}
@@ -2363,7 +2363,6 @@ void MainWindow::exportProject()
         QString templatename;
         QString templatenamews;
 
-
         if (exportType=="iOS")
         {
             arguments << "-platform" << "ios";
@@ -2428,16 +2427,18 @@ void MainWindow::exportProject()
         }
 
 
-
         QDir dir2 = QDir::currentPath();
-        dir2.cd("Templates");
+        if(!dir2.cd("Templates")){
+            QMessageBox::information(this, tr("Gideros"), tr("No Templates folder."));
+            return;
+        }
         if(!dir2.cd(templatedir) || !dir2.cd(templatename)){
             QMessageBox::information(this, tr("Gideros"), tr("No template found."));
             return;
         }
 
 		QSettings settings;
-        QString lastExportDirectory = settings.value(templatenamews+"lastExportDirectory", QString()).toString();
+        QString lastExportDirectory = settings.value(exportType+"lastExportDirectory", QString()).toString();
 
 		QString output = QFileDialog::getExistingDirectory(this, tr("Open Directory"),
 			lastExportDirectory,
@@ -2446,7 +2447,7 @@ void MainWindow::exportProject()
 		if (output.isEmpty() == true)
 			return;
 
-        settings.setValue(templatenamews+"lastExportDirectory", output);
+        settings.setValue(exportType+"lastExportDirectory", output);
 
         if (dialog.encryptCode() && dialog.encryptAssets())
         {
@@ -2480,7 +2481,8 @@ void MainWindow::exportProject()
         exportProcess->setProgram(program);
         exportProcess->setArguments(arguments);
 
-        ExportProgress progress(exportProcess,this);
+        QString outPath = QDir::cleanPath(out.absolutePath());
+        ExportProgress progress(exportProcess, outPath, this);
     	progress.exec();
     	delete exportProcess;
 

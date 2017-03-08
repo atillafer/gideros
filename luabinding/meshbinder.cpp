@@ -46,7 +46,6 @@ MeshBinder::MeshBinder(lua_State *L)
 
         {"setTexture", setTexture},
         {"clearTexture", clearTexture},
-        {"setTextureSlot", setTextureSlot},
         {"setPrimitiveType", setPrimitiveType},
 
         {NULL, NULL},
@@ -424,7 +423,10 @@ int MeshBinder::setVertexArray(lua_State *L)
             vertices[i] = luaL_checknumber(L, i + 2);
     }
 
-    mesh->setVertexArray(&vertices[0], vertices.size());
+	if (vertices.size() > 0)
+		mesh->setVertexArray(&vertices[0], vertices.size());
+	else
+		mesh->clearVertexArray();
 
     return 0;
 }
@@ -455,7 +457,10 @@ int MeshBinder::setIndexArray(lua_State *L)
             indices[i] = luaL_checkinteger(L, i + 2) - 1;
     }
 
-    mesh->setIndexArray(&indices[0], indices.size());
+	if (indices.size() > 0)
+		mesh->setIndexArray(&indices[0], indices.size());
+	else
+		mesh->clearIndexArray();
 
     return 0;
 }
@@ -498,7 +503,10 @@ int MeshBinder::setColorArray(lua_State *L)
         }
     }
 
-    mesh->setColorArray(&colors[0], &alphas[0], colors.size());
+	if (colors.size() > 0)
+		mesh->setColorArray(&colors[0], &alphas[0], colors.size());
+	else
+		mesh->clearColorArray();
 
     return 0;
 }
@@ -531,7 +539,10 @@ int MeshBinder::setTextureCoordinateArray(lua_State *L)
             textureCoordinates[i] = luaL_checknumber(L, i + 2);
     }
 
-    mesh->setTextureCoordinateArray(&textureCoordinates[0], textureCoordinates.size());
+	if (textureCoordinates.size()>0)
+		mesh->setTextureCoordinateArray(&textureCoordinates[0], textureCoordinates.size());
+	else
+		mesh->clearTextureCoordinateArray();
 
     return 0;
 }
@@ -684,7 +695,7 @@ int MeshBinder::getIndex(lua_State *L)
     GMesh *mesh = static_cast<GMesh*>(binder.getInstance("Mesh", 1));
     int i = luaL_checkinteger(L, 2) - 1;
 
-    if (i < 0 || i >= mesh->getVertexArraySize())
+    if (i < 0 || i >= mesh->getIndexArraySize())
         return luaL_error(L, "The supplied index is out of bounds.");
 
     unsigned short index;
@@ -700,7 +711,7 @@ int MeshBinder::getColor(lua_State *L)
     GMesh *mesh = static_cast<GMesh*>(binder.getInstance("Mesh", 1));
     int i = luaL_checkinteger(L, 2) - 1;
 
-    if (i < 0 || i >= mesh->getVertexArraySize())
+    if (i < 0 || i >= mesh->getColorArraySize())
         return luaL_error(L, "The supplied index is out of bounds.");
 
     unsigned int color;
@@ -718,7 +729,7 @@ int MeshBinder::getTextureCoordinate(lua_State *L)
     GMesh *mesh = static_cast<GMesh*>(binder.getInstance("Mesh", 1));
     int i = luaL_checkinteger(L, 2) - 1;
 
-    if (i < 0 || i >= mesh->getVertexArraySize())
+    if (i < 0 || i >= mesh->getTextureCoordinateArraySize())
         return luaL_error(L, "The supplied index is out of bounds.");
 
     float u, v;
@@ -740,25 +751,14 @@ int MeshBinder::setPrimitiveType(lua_State *L)
     return 0;
 }
 
-int MeshBinder::setTextureSlot(lua_State *L)
-{
-    Binder binder(L);
-    GMesh *mesh = static_cast<GMesh*>(binder.getInstance("Mesh", 1));
-    int slot=luaL_checkinteger(L,2);
-    TextureBase* textureBase = static_cast<TextureBase*>(binder.getInstance("TextureBase", 3));
-
-    mesh->setTextureSlot(slot,textureBase);
-
-    return 0;
-}
-
 int MeshBinder::setTexture(lua_State *L)
 {
     Binder binder(L);
     GMesh *mesh = static_cast<GMesh*>(binder.getInstance("Mesh", 1));
     TextureBase* textureBase = static_cast<TextureBase*>(binder.getInstance("TextureBase", 2));
+    int slot=luaL_optinteger(L,3,0);
 
-    mesh->setTexture(textureBase);
+    mesh->setTexture(textureBase,slot);
 
     return 0;
 }
@@ -767,8 +767,9 @@ int MeshBinder::clearTexture(lua_State *L)
 {
     Binder binder(L);
     GMesh *mesh = static_cast<GMesh*>(binder.getInstance("Mesh", 1));
+    int slot=luaL_optinteger(L,2,0);
 
-    mesh->clearTexture();
+    mesh->clearTexture(slot);
 
     return 0;
 }
